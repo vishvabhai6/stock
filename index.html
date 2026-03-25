@@ -659,13 +659,62 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .chart-grid{grid-template-columns:1fr}
 }
-@media(max-width:600px){
-  .stats-row{grid-template-columns:1fr 1fr}
-  .main{padding:14px}
-  .header{padding:0 14px}
-  .sell-item{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+
+/* ── MOBILE NAV (bottom tab bar) ── */
+.mobile-nav{display:none}
+@media(max-width:640px){
+  .nav{display:none!important}
+  .mobile-nav{
+    display:flex;
+    position:fixed;bottom:0;left:0;right:0;z-index:200;
+    background:var(--nav-bg);
+    border-top:1px solid var(--glass-border);
+    backdrop-filter:blur(20px) saturate(160%);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
+    padding:6px 0 max(6px,env(safe-area-inset-bottom));
+    gap:0;
+  }
+  .mob-btn{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:none;border:none;cursor:pointer;
+    font-family:'Plus Jakarta Sans',sans-serif;
+    font-size:.62rem;font-weight:600;color:var(--text3);
+    padding:6px 4px;transition:color .2s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mob-btn .mob-ico{font-size:1.3rem;line-height:1;display:block;transition:transform .2s}
+  .mob-btn.active{color:var(--accent2)}
+  .mob-btn.active .mob-ico{transform:scale(1.15)}
+  .main{padding-bottom:80px!important}
+  .header{padding:0 12px;height:54px}
   .logo{font-size:1rem}
-  .nav-btn{padding:7px 12px;font-size:.78rem}
+  #db-status{display:none}
+  .main{padding:12px}
+  .stats-row{grid-template-columns:1fr 1fr;gap:10px}
+  .stat-card{padding:14px}
+  .stat-value{font-size:1.2rem!important}
+  .company-grid{grid-template-columns:1fr}
+  .sell-item{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:6px}
+  .table-wrap{font-size:.78rem}
+  td,th{padding:9px 10px}
+  .sec-hdr{flex-direction:column;align-items:flex-start;gap:10px}
+  .sec-hdr > div:last-child{width:100%}
+  .search-wrap{min-width:0;flex:1;width:100%}
+  .btn{font-size:.8rem;padding:8px 14px}
+  #shopSumCard > div{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  #compFinanceBanner > div:first-child{grid-template-columns:1fr!important}
+  .sess-hdr{flex-wrap:wrap;gap:8px}
+  #compPayStats > div:nth-child(2){grid-template-columns:1fr!important}
+  #compPayStats > div:nth-child(3){grid-template-columns:1fr!important}
+  .modal{padding:20px 16px;border-radius:18px}
+  .form-2col{grid-template-columns:1fr}
+  .chart-card{padding:16px}
+  .filter-row{gap:5px;flex-wrap:wrap}
+  .back-btn{font-size:.82rem;padding:7px 12px}
+  .bread{font-size:.75rem}
+  .session-block{border-radius:12px}
+  .sess-hdr{padding:11px 13px}
+  .sess-body{padding:12px 13px}
 }
 </style>
 </head>
@@ -688,6 +737,19 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
   </div>
 </div>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mob-btn active" id="mnDash" onclick="showPage('dashboard')">
+    <span class="mob-ico">📊</span>Dashboard
+  </button>
+  <button class="mob-btn" id="mnStock" onclick="showPage('stock')">
+    <span class="mob-ico">📦</span>Stock
+  </button>
+  <button class="mob-btn" id="mnSell" onclick="showPage('sell')">
+    <span class="mob-ico">🛒</span>Sell
+  </button>
+</nav>
 
 <div class="main">
 
@@ -859,6 +921,11 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       <label>Shop / Customer Name</label>
       <input type="text" id="shopNameInp" placeholder="Type shop name…" oninput="shopAC()" autocomplete="off">
       <div class="ac-list" id="shopSugg" style="display:none"></div>
+    </div>
+    <div class="fg"><label>Sale Date</label><input type="date" id="saleDate"></div>
+    <div id="prevBalBanner" style="display:none;margin-bottom:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:12px;padding:11px 14px">
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:3px">Previous Unpaid Balance</div>
+      <div id="prevBalAmt" style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700;color:var(--red)"></div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px">
       <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Products</div>
@@ -1140,6 +1207,10 @@ function showPage(name){
   document.getElementById('page-'+name).classList.add('active');
   const idx=['dashboard','stock','sell'].indexOf(name);
   if(idx>=0) document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  // Update mobile bottom nav
+  ['mnDash','mnStock','mnSell'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  const mMap={dashboard:'mnDash',stock:'mnStock',sell:'mnSell'};
+  if(mMap[name]) document.getElementById(mMap[name]).classList.add('active');
   if(name==='dashboard') renderDash();
   if(name==='stock'){showComps();renderComps();}
   if(name==='sell') renderShops();
@@ -1617,13 +1688,21 @@ function openSellModal(eid=null,shopId=null){
   document.getElementById('amtPaid').value='';
   document.getElementById('sellSum').style.display='none';
   document.getElementById('shopSugg').style.display='none';
+  document.getElementById('saleDate').value=today();
+  document.getElementById('prevBalBanner').style.display='none';
   selPayMethod='Cash';
-  document.querySelectorAll('.pay-opt').forEach((b,i)=>b.classList[i===0?'add':'remove']('on'));
+  document.querySelectorAll('#payOpts .pay-opt').forEach((b,i)=>b.classList[i===0?'add':'remove']('on'));
   if(shopId){
     const sh=db.shops.find(x=>x.id===shopId);
     document.getElementById('shopNameInp').value=sh.name;
     document.getElementById('shopNameInp').disabled=true;
     document.getElementById('shopNameInp').dataset.shopId=shopId;
+    // Show previous balance banner
+    const ls=sh.sessions[sh.sessions.length-1];
+    if(ls&&ls.balance>0){
+      document.getElementById('prevBalBanner').style.display='';
+      document.getElementById('prevBalAmt').textContent=fmt(ls.balance)+' (from '+fmtD(ls.date)+')';
+    }
   }
   addSellRow();
   openM('mSell');
@@ -1681,18 +1760,18 @@ function updSellSum(){
   const sid=document.getElementById('shopNameInp').dataset.shopId;
   let prev=0;
   if(sid){const sh=db.shops.find(x=>x.id===sid);if(sh){const l=sh.sessions[sh.sessions.length-1];if(l)prev=l.balance;}}
-  const bal=Math.max(0,total-paid);
-  const grand=bal+prev;
+  const grandTotal=total+prev;
+  const balance=Math.max(0,grandTotal-paid);
   const el=document.getElementById('sellSum');
   if(total>0){
     el.style.display='';
     el.className='sell-sum';
     el.innerHTML=`
-      <div class="ss-row"><span class="lbl">Subtotal</span><span class="val">${fmt(total)}</span></div>
-      ${prev>0?`<div class="ss-row due"><span class="lbl">Previous Due</span><span class="val">${fmt(prev)}</span></div>`:''}
+      <div class="ss-row"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>
+      ${prev>0?`<div class="ss-row due"><span class="lbl">Previous Balance</span><span class="val">${fmt(prev)}</span></div>`:''}
+      ${prev>0?`<div class="ss-row tot"><span class="lbl">Total Bill</span><span class="val">${fmt(grandTotal)}</span></div>`:''}
       <div class="ss-row paid"><span class="lbl">Paid Now</span><span class="val">${fmt(paid)}</span></div>
-      <div class="ss-row tot"><span class="lbl">Total Bill</span><span class="val">${fmt(total)}</span></div>
-      <div class="ss-row ${grand>0?'due':'paid'}"><span class="lbl">Balance Due</span><span class="val">${grand>0?fmt(grand):'₹0.00 ✓'}</span></div>
+      <div class="ss-row ${balance>0?'due':'paid'}"><span class="lbl">Balance Due</span><span class="val">${balance>0?fmt(balance):'₹0.00 ✓'}</span></div>
     `;
   } else el.style.display='none';
 }
@@ -1710,6 +1789,14 @@ function selShopAC(id){
   document.getElementById('shopNameInp').value=sh.name;
   document.getElementById('shopNameInp').dataset.shopId=id;
   document.getElementById('shopSugg').style.display='none';
+  // Show prev balance banner
+  const ls=sh.sessions[sh.sessions.length-1];
+  if(ls&&ls.balance>0){
+    document.getElementById('prevBalBanner').style.display='';
+    document.getElementById('prevBalAmt').textContent=fmt(ls.balance)+' (from '+fmtD(ls.date)+')';
+  } else {
+    document.getElementById('prevBalBanner').style.display='none';
+  }
   updSellSum();
 }
 function selPay(btn,m){
@@ -1726,27 +1813,37 @@ function saveSale(){
   for(const r of valid){
     const p=db.products.find(x=>x.id===r.productId);
     if(!p){toast('Product not found','err');return;}
-    if(p.qty<r.qty){toast(`Low stock: ${p.name} (have ${p.qty})`,'err');return;}
+    if(p.qty<r.qty){toast('Low stock: '+p.name+' (have '+p.qty+')','err');return;}
   }
-  const total=valid.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+  const newBillTotal=valid.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
   const paid=parseFloat(document.getElementById('amtPaid').value)||0;
+  const saleDate=document.getElementById('saleDate').value||today();
   let sid=document.getElementById('shopNameInp').dataset.shopId;
   let shop=sid?db.shops.find(x=>x.id===sid):db.shops.find(x=>x.name.toLowerCase()===shopName.toLowerCase());
   if(!shop){shop={id:uid(),name:shopName,sessions:[]};db.shops.push(shop);}
   const ls=shop.sessions[shop.sessions.length-1];
-  const prev=ls?ls.balance:0;
-  const newBal=Math.max(0,prev+total-paid);
+  const prevBalance=ls?ls.balance:0;
+  // Grand total = new bill + previous unpaid balance
+  const grandTotal=newBillTotal+prevBalance;
+  const newBalance=Math.max(0,grandTotal-paid);
   const sess={
-    id:uid(),date:today(),
+    id:uid(),
+    date:saleDate,
     items:valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty})),
-    total,paid,payMethod:selPayMethod,balance:newBal,prevBalance:prev,
-    payments:paid>0?[{id:uid(),date:today(),amount:paid,method:selPayMethod}]:[]
+    newBillTotal,          // just this session's goods value
+    total:grandTotal,      // total = newBill + prevBalance (what customer owes total)
+    prevBalance,           // carried forward from last session
+    paid,
+    payMethod:selPayMethod,
+    balance:newBalance,
+    payments:paid>0?[{id:uid(),date:saleDate,amount:paid,method:selPayMethod}]:[]
   };
   shop.sessions.push(sess);
   valid.forEach(r=>{const p=db.products.find(x=>x.id===r.productId);if(p){p.qty-=r.qty;p.sold+=r.qty;}});
   toast('Sale recorded! 🎉','ok','pay');
   closeM('mSell');
   renderShops();
+  if(currShopId===shop.id) openShopDetail(shop.id);
   if(document.getElementById('page-dashboard').classList.contains('active')) renderDash();
   if(window.saveToFirestore) saveToFirestore();
 }
@@ -1825,29 +1922,36 @@ function openShopDetail(id){
   const tp=sh.sessions.reduce((a,s)=>a+s.paid,0);
   const ls=sh.sessions[sh.sessions.length-1];
   const bal=ls?ls.balance:0;
+  // For total billed, sum newBillTotal (actual goods), not grandTotal (which double-counts prev balance)
+  const tbGoods=sh.sessions.reduce((a,s)=>a+(s.newBillTotal!==undefined?s.newBillTotal:(s.prevBalance>0?s.total-s.prevBalance:s.total)),0);
   document.getElementById('shopSumCard').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
       <div class="stat-card sc-blue" style="padding:16px"><div class="stat-label">Sessions</div><div class="stat-value">${sh.sessions.length}</div></div>
-      <div class="stat-card sc-cyan" style="padding:16px"><div class="stat-label">Total Billed</div><div class="stat-value" style="font-size:1.1rem">${fmt(tb)}</div></div>
+      <div class="stat-card sc-cyan" style="padding:16px"><div class="stat-label">Total Billed</div><div class="stat-value" style="font-size:1.1rem">${fmt(tbGoods)}</div></div>
       <div class="stat-card sc-green" style="padding:16px"><div class="stat-label">Total Paid</div><div class="stat-value" style="font-size:1.1rem">${fmt(tp)}</div></div>
       <div class="stat-card sc-red" style="padding:16px"><div class="stat-label">Balance Due</div><div class="stat-value" style="font-size:1.1rem">${fmt(bal)}</div></div>
     </div>
   `;
   const pi={Cash:'💵','Bank Transfer':'🏦',GPay:'📱',PhonePe:'📲'};
   const sessions=[...sh.sessions].reverse();
-  document.getElementById('shopHistory').innerHTML=sessions.map(sess=>`
+  document.getElementById('shopHistory').innerHTML=sessions.length?sessions.map((sess,ri)=>{
+    // Support both old (total=grandTotal) and new (newBillTotal) records
+    const newBill = sess.newBillTotal !== undefined ? sess.newBillTotal : (sess.prevBalance>0 ? sess.total - sess.prevBalance : sess.total);
+    const grandTotal = sess.total;
+    const prevBal = sess.prevBalance || 0;
+    return `
     <div class="session-block">
       <div class="sess-hdr" onclick="toggleSess(this)">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:1rem">${pi[sess.payMethod]||'💳'}</span>
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(249,168,212,.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${pi[sess.payMethod]||'💳'}</div>
           <div>
-            <div style="font-size:.87rem;font-weight:700">${fmtD(sess.date)}</div>
+            <div style="font-size:.87rem;font-weight:700">📅 ${fmtD(sess.date)}</div>
             <div style="font-size:.73rem;color:var(--text3)">${sess.items.length} item(s) · ${sess.payMethod}</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           <div style="text-align:right">
-            <div style="font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--accent)">${fmt(sess.total)}</div>
+            <div style="font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--accent)">${fmt(grandTotal)}</div>
             <span class="due-badge ${sess.balance>0?'due-red':'due-green'}">${sess.balance>0?'Due: '+fmt(sess.balance):'Settled ✓'}</span>
           </div>
           ${sess.balance>0?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.75rem;padding:5px 10px" onclick="event.stopPropagation();openAddPay('${sh.id}','${sess.id}')">＋ Pay</button>`:''}
@@ -1856,7 +1960,7 @@ function openShopDetail(id){
           <span style="color:var(--text3);font-size:.8rem">▾</span>
         </div>
       </div>
-      <div class="sess-body">
+      <div class="sess-body" style="display:none">
         <table class="sess-table">
           <thead><tr><th>Product</th><th style="text-align:right">Price</th><th style="text-align:right">Qty</th><th style="text-align:right">Amount</th></tr></thead>
           <tbody>
@@ -1867,31 +1971,43 @@ function openShopDetail(id){
               <td style="text-align:right;font-weight:700;color:var(--green)">${fmt(it.sellPrice*it.qty)}</td>
             </tr>`).join('')}
             <tr style="font-weight:700;border-top:1px solid var(--glass-border)">
-              <td colspan="3">Total</td><td style="text-align:right;color:var(--accent)">${fmt(sess.total)}</td>
+              <td colspan="3" style="color:var(--text3)">New Bill (${fmtD(sess.date)})</td>
+              <td style="text-align:right;color:var(--accent)">${fmt(newBill)}</td>
             </tr>
-            ${sess.prevBalance>0?`<tr><td colspan="3" style="color:var(--red)">Prev. Balance</td><td style="text-align:right;color:var(--red)">${fmt(sess.prevBalance)}</td></tr>`:''}
+            ${prevBal>0?`<tr>
+              <td colspan="3" style="color:var(--red);font-size:.82rem">+ Previous Balance</td>
+              <td style="text-align:right;color:var(--red)">${fmt(prevBal)}</td>
+            </tr>
+            <tr style="font-weight:700;background:rgba(249,168,212,.06)">
+              <td colspan="3" style="color:var(--accent)">= Total Bill</td>
+              <td style="text-align:right;color:var(--accent);font-family:'Clash Display',sans-serif">${fmt(grandTotal)}</td>
+            </tr>`:''}
+            <tr style="color:var(--green)">
+              <td colspan="3">Paid</td>
+              <td style="text-align:right;font-weight:600">${fmt(sess.paid)}</td>
+            </tr>
             <tr>
-              <td colspan="3" style="color:${sess.balance>0?'var(--red)':'var(--green)'}">Balance Due</td>
-              <td style="text-align:right;font-weight:700;color:${sess.balance>0?'var(--red)':'var(--green)'}">${fmt(sess.balance)}</td>
+              <td colspan="3" style="font-weight:700;color:${sess.balance>0?'var(--red)':'var(--green)'}">Balance Due</td>
+              <td style="text-align:right;font-weight:700;color:${sess.balance>0?'var(--red)':'var(--green)'}">${sess.balance>0?fmt(sess.balance):'₹0.00 ✓'}</td>
             </tr>
           </tbody>
         </table>
         <!-- Payment history -->
         ${sess.payments&&sess.payments.length?`
-          <div style="margin-top:12px;font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Payment History</div>
+          <div style="margin-top:12px;font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">💳 Payment History</div>
           ${sess.payments.map(pay=>`
             <div class="pay-hist-row">
               <span class="pay-hist-icon">${pi[pay.method]||'💳'}</span>
               <div class="pay-hist-info">
                 <strong>${fmt(pay.amount)}</strong>
-                <span>${fmtD(pay.date)} · ${pay.method}</span>
+                <span>📅 ${fmtD(pay.date)} · ${pay.method}</span>
               </div>
             </div>
           `).join('')}
         `:''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join(''):'<div class="empty"><div class="empty-ico">🧾</div><div style="font-size:.8rem">No transactions yet</div></div>';
   document.getElementById('sellv-list').style.display='none';
   document.getElementById('sellv-detail').style.display='';
 }
@@ -1909,15 +2025,24 @@ function backToShops(){
 // SESSION DELETE & EDIT
 // ══════════════════════════════════════════
 function delSess(shopId, sessId){
-  customConfirm('Delete this session? Stock quantities will NOT be restored.','🧾','Delete Session', ok=>{
+  customConfirm('Delete this session? Stock quantities will be restored.','🧾','Delete Session', ok=>{
     if(!ok) return;
     const sh = db.shops.find(x=>x.id===shopId);
+    const sess = sh.sessions.find(s=>s.id===sessId);
+    // ✅ Restore stock for each item in this session
+    if(sess && sess.items){
+      sess.items.forEach(it=>{
+        const p = db.products.find(x=>x.id===it.productId);
+        if(p){ p.qty += it.qty; p.sold = Math.max(0, p.sold - it.qty); }
+      });
+    }
     sh.sessions = sh.sessions.filter(s=>s.id!==sessId);
     let prev = 0;
     sh.sessions.forEach(s=>{ s.prevBalance=prev; s.balance=Math.max(0,s.prevBalance+s.total-s.paid); prev=s.balance; });
-    toast('Session deleted 🗑️','info','del');
+    toast('Session deleted & stock restored 🗑️','info','del');
     openShopDetail(shopId);
     renderShops();
+    renderComps();
     if(window.saveToFirestore) saveToFirestore();
   });
 }
