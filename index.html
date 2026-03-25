@@ -749,6 +749,8 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   <div id="sv-products" style="display:none">
     <div class="back-btn" onclick="backToComps()">← Companies</div>
     <div class="bread"><a onclick="backToComps()">Companies</a><span class="bread-sep">›</span><span id="currCompName"></span></div>
+    <!-- Company Finance Summary Banner -->
+    <div id="compFinanceBanner" style="margin-bottom:18px"></div>
     <div class="sec-hdr">
       <div class="sec-title" id="prodTitle"></div>
       <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
@@ -816,6 +818,14 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="modal-title"><span id="mCompTitle">Add Company</span><button class="modal-x" onclick="closeM('mComp')">✕</button></div>
     <div class="fg"><label>Company Name</label><input type="text" id="cmpName" placeholder="e.g. Samsung Electronics"></div>
     <div class="fg"><label>Description</label><input type="text" id="cmpDesc" placeholder="e.g. Electronics & Gadgets"></div>
+    <div class="form-2col">
+      <div class="fg"><label>Total Purchased (₹)</label><input type="number" id="cmpPurchased" placeholder="0.00" oninput="calcCompPending()"></div>
+      <div class="fg"><label>Paid to Company (₹)</label><input type="number" id="cmpPaid" placeholder="0.00" oninput="calcCompPending()"></div>
+    </div>
+    <div id="cmpPendingPreview" style="display:none;margin-bottom:14px;border-radius:12px;padding:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.2)">
+      <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">Pending to Company</div>
+      <div id="cmpPendingAmt" style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:700;color:var(--red)"></div>
+    </div>
     <div class="form-acts">
       <button class="btn btn-ghost" onclick="closeM('mComp')">Cancel</button>
       <button class="btn btn-primary" onclick="saveComp()">Save</button>
@@ -1166,40 +1176,59 @@ function renderDashStats(){
 }
 
 function renderCompPayStats(){
-  // Total purchase cost per company & total paid to company
-  const rows = db.companies.map(c=>{
-    const prods = db.products.filter(p=>p.cId===c.id);
-    const totalPurchasedCalc = prods.reduce((a,p)=>a+(p.buy*(p.qty+p.sold)),0);
-    const purchased = c.totalPurchased || totalPurchasedCalc;
-    const paid = c.totalPaid || 0;
-    const due = Math.max(0, purchased - paid);
+  if(!db.companies.length){document.getElementById('compPayStats').innerHTML='';return;}
+  const rows=db.companies.map(c=>{
+    const purchased=c.totalPurchased||0;
+    const paid=c.totalPaid||0;
+    const due=Math.max(0,purchased-paid);
     return {c,purchased,paid,due};
   });
+  const totalPurchased=rows.reduce((a,r)=>a+r.purchased,0);
+  const totalPaid=rows.reduce((a,r)=>a+r.paid,0);
+  const totalDue=rows.reduce((a,r)=>a+r.due,0);
   document.getElementById('compPayStats').innerHTML=`
-    <div class="sec-title" style="margin-bottom:12px">Company Purchase Overview</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+    <div class="sec-title" style="margin-bottom:12px">🏢 Company Purchase Overview</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div class="stat-card sc-cyan" style="padding:14px">
+        <div class="stat-label">Total Purchased</div>
+        <div class="stat-value" style="font-size:1.1rem">${fmt(totalPurchased)}</div>
+        <div class="stat-sub">across ${db.companies.length} companies</div>
+      </div>
+      <div class="stat-card sc-green" style="padding:14px">
+        <div class="stat-label">Total Paid</div>
+        <div class="stat-value" style="font-size:1.1rem">${fmt(totalPaid)}</div>
+      </div>
+      <div class="stat-card sc-red" style="padding:14px">
+        <div class="stat-label">Total Pending</div>
+        <div class="stat-value" style="font-size:1.1rem">${totalDue>0?fmt(totalDue):'Cleared ✓'}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
       ${rows.map(r=>`
-        <div class="stat-card sc-cyan" style="padding:18px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-            <div class="avatar" style="width:36px;height:36px;font-size:.8rem;margin:0">${r.c.name.substr(0,2).toUpperCase()}</div>
-            <div>
-              <div style="font-size:.88rem;font-weight:700">${r.c.name}</div>
-              <div style="font-size:.72rem;color:var(--text3)">${r.c.desc||''}</div>
+        <div class="glass" style="padding:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:9px">
+              <div class="avatar" style="width:34px;height:34px;font-size:.78rem;margin:0">${r.c.name.substr(0,2).toUpperCase()}</div>
+              <div>
+                <div style="font-size:.88rem;font-weight:700">${r.c.name}</div>
+                <div style="font-size:.72rem;color:var(--text3)">${r.c.desc||''}</div>
+              </div>
+            </div>
+            <button class="btn-xs btn-edit" onclick="openCompModal('${r.c.id}')" title="Edit">✏️</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px">
+            <div style="background:rgba(249,168,212,.07);border-radius:9px;padding:9px">
+              <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Purchased</div>
+              <div style="font-family:'Clash Display',sans-serif;font-size:.9rem;font-weight:700;color:var(--accent)">${fmt(r.purchased)}</div>
+            </div>
+            <div style="background:rgba(134,239,172,.07);border-radius:9px;padding:9px">
+              <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Paid</div>
+              <div style="font-family:'Clash Display',sans-serif;font-size:.9rem;font-weight:700;color:var(--green)">${fmt(r.paid)}</div>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div style="background:rgba(0,212,255,.07);border-radius:10px;padding:10px">
-              <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Purchased</div>
-              <div style="font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--accent)">${fmt(r.purchased)}</div>
-            </div>
-            <div style="background:rgba(0,232,122,.07);border-radius:10px;padding:10px">
-              <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Paid to Company</div>
-              <div style="font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--green)">${fmt(r.paid)}</div>
-            </div>
-          </div>
-          <div style="margin-top:10px;background:rgba(255,77,106,.07);border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center">
-            <div style="font-size:.74rem;color:var(--text3)">Amount to Pay Company</div>
-            <div style="font-family:'Clash Display',sans-serif;font-weight:700;color:${r.due>0?'var(--red)':'var(--green)'}">${r.due>0?fmt(r.due):'Cleared ✓'}</div>
+          <div style="background:${r.due>0?'rgba(251,113,133,.08)':'rgba(134,239,172,.08)'};border:1px solid ${r.due>0?'rgba(251,113,133,.2)':'rgba(134,239,172,.2)'};border-radius:9px;padding:9px;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:.73rem;color:var(--text3)">Pending to Pay</div>
+            <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:.9rem;color:${r.due>0?'var(--red)':'var(--green)'}">${r.due>0?fmt(r.due):'Cleared ✓'}</div>
           </div>
         </div>
       `).join('')}
@@ -1307,8 +1336,8 @@ function renderComps(){
     const tq=ps.reduce((a,p)=>a+p.qty,0),ts=ps.reduce((a,p)=>a+p.sold,0);
     const init=c.name.split(' ').map(w=>w[0]).join('').substr(0,2).toUpperCase();
     return `
-    <div class="company-card" style="animation-delay:${i*.07}s">
-      <div class="comp-tap-area" onclick="openComp('${c.id}')">
+    <div class="company-card" style="animation-delay:${i*.07}s;cursor:pointer" onclick="openComp('${c.id}')">
+      <div class="comp-tap-area">
         <div class="avatar">${init}</div>
         <div class="comp-name">${c.name}</div>
         <div class="comp-desc">${c.desc||'—'}</div>
@@ -1322,8 +1351,8 @@ function renderComps(){
         </div>
       </div>
       <div class="comp-actions" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border)">
-        <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="openCompModal('${c.id}')">✏️ Edit</button>
-        <button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="delComp('${c.id}')">🗑️ Delete</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openCompModal('${c.id}')">✏️ Edit</button>
+        <button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="event.stopPropagation();delComp('${c.id}')">🗑️ Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -1340,38 +1369,102 @@ function openComp(id){
   document.getElementById('sv-companies').style.display='none';
   document.getElementById('sv-products').style.display='';
   const ps=document.getElementById('prodSearch'); if(ps) ps.value='';
+  renderCompFinanceBanner(id);
   renderProds();
 }
 function backToComps(){showComps();currCompId=null;}
 
+function renderCompFinanceBanner(id){
+  const c=db.companies.find(x=>x.id===id);
+  if(!c) return;
+  const purchased=c.totalPurchased||0;
+  const paid=c.totalPaid||0;
+  const pending=Math.max(0,purchased-paid);
+  document.getElementById('compFinanceBanner').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px">
+      <div class="stat-card sc-cyan" style="padding:16px">
+        <div class="stat-label">💳 Total Purchased</div>
+        <div class="stat-value" style="font-size:1.1rem">${fmt(purchased)}</div>
+      </div>
+      <div class="stat-card sc-green" style="padding:16px">
+        <div class="stat-label">✅ Paid to Company</div>
+        <div class="stat-value" style="font-size:1.1rem">${fmt(paid)}</div>
+      </div>
+      <div class="stat-card ${pending>0?'sc-red':'sc-green'}" style="padding:16px;position:relative">
+        <div class="stat-label">⚠️ Pending Amount</div>
+        <div class="stat-value" style="font-size:1.1rem">${pending>0?fmt(pending):'Cleared ✓'}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <button class="btn btn-ghost btn-sm" onclick="openCompModal('${id}')">✏️ Edit Company / Amounts</button>
+      <button class="btn btn-sm" style="background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="delComp('${id}')">🗑️ Delete Company</button>
+    </div>
+  `;
+}
+
 function openCompModal(id=null){
   editCompId=id;
   document.getElementById('mCompTitle').textContent=id?'Edit Company':'Add Company';
-  if(id){const c=db.companies.find(x=>x.id===id);document.getElementById('cmpName').value=c.name;document.getElementById('cmpDesc').value=c.desc||'';}
-  else{document.getElementById('cmpName').value='';document.getElementById('cmpDesc').value='';}
+  if(id){
+    const c=db.companies.find(x=>x.id===id);
+    document.getElementById('cmpName').value=c.name;
+    document.getElementById('cmpDesc').value=c.desc||'';
+    document.getElementById('cmpPurchased').value=c.totalPurchased||'';
+    document.getElementById('cmpPaid').value=c.totalPaid||'';
+    calcCompPending();
+  } else {
+    ['cmpName','cmpDesc','cmpPurchased','cmpPaid'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('cmpPendingPreview').style.display='none';
+  }
   openM('mComp');
 }
+
+function calcCompPending(){
+  const p=parseFloat(document.getElementById('cmpPurchased').value)||0;
+  const paid=parseFloat(document.getElementById('cmpPaid').value)||0;
+  const pending=Math.max(0,p-paid);
+  const el=document.getElementById('cmpPendingPreview');
+  if(p>0){
+    el.style.display='';
+    document.getElementById('cmpPendingAmt').textContent=pending>0?'₹'+Number(pending).toLocaleString('en-IN',{minimumFractionDigits:2}):'Cleared ✓';
+    document.getElementById('cmpPendingAmt').style.color=pending>0?'var(--red)':'var(--green)';
+  } else { el.style.display='none'; }
+}
+
 function saveComp(){
   const name=document.getElementById('cmpName').value.trim();
   if(!name){toast('Company name required','err');return;}
+  const purchased=parseFloat(document.getElementById('cmpPurchased').value)||0;
+  const paid=parseFloat(document.getElementById('cmpPaid').value)||0;
   if(editCompId){
     const c=db.companies.find(x=>x.id===editCompId);
-    c.name=name;c.desc=document.getElementById('cmpDesc').value.trim();
+    c.name=name;
+    c.desc=document.getElementById('cmpDesc').value.trim();
+    c.totalPurchased=purchased;
+    c.totalPaid=paid;
     toast('Company updated ✏️','ok','stock');
+    // refresh banner if we're inside products view
+    if(currCompId===editCompId) renderCompFinanceBanner(editCompId);
   } else {
-    db.companies.push({id:uid(),name,desc:document.getElementById('cmpDesc').value.trim(),totalPurchased:0,totalPaid:0});
+    db.companies.push({id:uid(),name,desc:document.getElementById('cmpDesc').value.trim(),totalPurchased:purchased,totalPaid:paid});
     toast('Company added 🏢','ok','stock');
   }
-  closeM('mComp');renderComps();
+  closeM('mComp');
+  renderComps();
+  if(document.getElementById('page-dashboard').classList.contains('active')) renderDash();
   if(window.saveToFirestore) saveToFirestore();
 }
+
 function delComp(id){
   customConfirm('This will delete the company and ALL its products. This cannot be undone.','🏢','Delete Company', ok=>{
     if(!ok) return;
     db.companies=db.companies.filter(c=>c.id!==id);
     db.products=db.products.filter(p=>p.cId!==id);
     toast('Company deleted 🗑️','info','del');
+    // Go back to companies list if we were inside this company
+    if(currCompId===id){ currCompId=null; showComps(); }
     renderComps();
+    if(document.getElementById('page-dashboard').classList.contains('active')) renderDash();
     if(window.saveToFirestore) saveToFirestore();
   });
 }
