@@ -704,59 +704,115 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
 /* ── MOBILE NAV (bottom tab bar) ── */
 .mobile-nav{display:none}
-@media(max-width:640px){
+.hidden-nav{display:none!important}
+
+@media(max-width:680px){
+  /* ─ Hide top nav ─ */
   .nav{display:none!important}
+  #userEmailBadge{display:none!important}
+
+  /* ─ Header ─ */
+  .header{padding:0 12px;height:52px}
+  .logo{font-size:1rem}
+  #db-status{display:none!important}
+
+  /* ─ Bottom nav bar ─ */
   .mobile-nav{
-    display:flex;
-    position:fixed;bottom:0;left:0;right:0;z-index:200;
+    display:flex !important;
+    position:fixed;bottom:0;left:0;right:0;z-index:500;
     background:var(--nav-bg);
-    border-top:1px solid var(--glass-border);
-    backdrop-filter:blur(20px) saturate(160%);
-    -webkit-backdrop-filter:blur(20px) saturate(160%);
-    padding:6px 0 max(6px,env(safe-area-inset-bottom));
+    border-top:2px solid var(--glass-border);
+    backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+    height:60px;
+    padding:0;
     gap:0;
+    box-shadow:0 -4px 20px rgba(0,0,0,.3);
   }
   .mob-btn{
-    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    flex:1;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;
     background:none;border:none;cursor:pointer;
     font-family:'Plus Jakarta Sans',sans-serif;
-    font-size:.62rem;font-weight:600;color:var(--text3);
-    padding:6px 4px;transition:color .2s;
+    font-size:.58rem;font-weight:700;letter-spacing:.3px;
+    color:var(--text3);
+    padding:0 2px;
+    transition:color .18s;
     -webkit-tap-highlight-color:transparent;
+    min-width:0;
+    border-top:2px solid transparent;
+    margin-top:-2px;
   }
-  .mob-btn .mob-ico{font-size:1.3rem;line-height:1;display:block;transition:transform .2s}
-  .mob-btn.active{color:var(--accent2)}
-  .mob-btn.active .mob-ico{transform:scale(1.15)}
-  .main{padding-bottom:80px!important}
-  .header{padding:0 12px;height:54px}
-  .logo{font-size:1rem}
-  #db-status{display:none}
-  .main{padding:12px}
-  .stats-row{grid-template-columns:1fr 1fr;gap:10px}
-  .stat-card{padding:14px}
-  .stat-value{font-size:1.2rem!important}
-  .company-grid{grid-template-columns:1fr}
+  .mob-btn .mob-ico{
+    font-size:1.25rem;line-height:1;display:block;
+    transition:transform .18s;
+  }
+  .mob-btn.active{
+    color:var(--accent2);
+    border-top:2px solid var(--accent2);
+  }
+  .mob-btn.active .mob-ico{transform:scale(1.1)}
+
+  /* ─ Main content padding ─ */
+  .main{
+    padding:12px 12px 72px 12px !important;
+  }
+
+  /* ─ Stats ─ */
+  .stats-row{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .stat-card{padding:12px 10px}
+  .stat-value{font-size:1.1rem!important}
+  .stat-label{font-size:.65rem!important}
+  .stat-sub{font-size:.68rem}
+
+  /* ─ Company grid ─ */
+  .company-grid{grid-template-columns:1fr;gap:10px}
+
+  /* ─ Sell items ─ */
   .sell-item{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:6px}
-  .table-wrap{font-size:.78rem}
-  td,th{padding:9px 10px}
-  .sec-hdr{flex-direction:column;align-items:flex-start;gap:10px}
+
+  /* ─ Tables ─ */
+  .table-wrap{font-size:.76rem;border-radius:12px}
+  td{padding:8px 9px}
+  th{padding:9px;font-size:.66rem}
+
+  /* ─ Section header ─ */
+  .sec-hdr{flex-direction:column;align-items:flex-start;gap:8px}
   .sec-hdr > div:last-child{width:100%}
   .search-wrap{min-width:0;flex:1;width:100%}
-  .btn{font-size:.8rem;padding:8px 14px}
+  .btn{font-size:.79rem;padding:8px 13px}
+
+  /* ─ Shop summary ─ */
   #shopSumCard > div{grid-template-columns:1fr 1fr!important;gap:8px!important}
+
+  /* ─ Company finance banner ─ */
   #compFinanceBanner > div:first-child{grid-template-columns:1fr!important}
-  .sess-hdr{flex-wrap:wrap;gap:8px}
+
+  /* ─ Sessions ─ */
+  .sess-hdr{flex-wrap:wrap;gap:6px;padding:10px 12px}
+  .sess-body{padding:10px 12px}
+  .session-block{border-radius:12px}
+
+  /* ─ Company pay stats ─ */
   #compPayStats > div:nth-child(2){grid-template-columns:1fr!important}
   #compPayStats > div:nth-child(3){grid-template-columns:1fr!important}
-  .modal{padding:20px 16px;border-radius:18px}
+
+  /* ─ Modals ─ */
+  .modal{padding:18px 14px;border-radius:18px;max-height:88vh}
   .form-2col{grid-template-columns:1fr}
-  .chart-card{padding:16px}
-  .filter-row{gap:5px;flex-wrap:wrap}
-  .back-btn{font-size:.82rem;padding:7px 12px}
-  .bread{font-size:.75rem}
-  .session-block{border-radius:12px}
-  .sess-hdr{padding:11px 13px}
-  .sess-body{padding:12px 13px}
+
+  /* ─ Charts ─ */
+  .chart-grid{gap:10px}
+  .chart-card{padding:14px}
+  .filter-row{gap:4px;flex-wrap:wrap}
+
+  /* ─ Nav ─ */
+  .back-btn{font-size:.8rem;padding:7px 11px}
+  .bread{font-size:.73rem}
+
+  /* ─ Glass card ─ */
+  .glass{padding:14px}
 }
 
 /* ─── LOGIN PAGE ─── */
@@ -765,6 +821,20 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   display:flex;align-items:center;justify-content:center;
   background:var(--bg-base);
   padding:20px;
+  overflow:hidden;
+}
+/* Static gradient blobs for login bg - no animation */
+#loginPage::before{
+  content:'';position:absolute;
+  width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(236,72,153,.15),transparent 70%);
+  top:-150px;right:-150px;pointer-events:none;
+}
+#loginPage::after{
+  content:'';position:absolute;
+  width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(249,168,212,.10),transparent 70%);
+  bottom:-100px;left:-100px;pointer-events:none;
 }
 .login-card{
   width:100%;max-width:420px;
@@ -775,7 +845,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   -webkit-backdrop-filter:blur(40px) saturate(200%);
   box-shadow:var(--glass-shadow-h);
   padding:40px 36px;
-  animation:slideUp .4s cubic-bezier(.34,1.56,.64,1);
+
 }
 .login-logo{
   text-align:center;margin-bottom:32px;
@@ -786,7 +856,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   display:flex;align-items:center;justify-content:center;
   font-size:2rem;margin:0 auto 14px;
   box-shadow:0 8px 32px rgba(236,72,153,.4);
-  animation:orbFloat 4s ease-in-out infinite;
+  /* no animation */
 }
 .login-title{
   font-family:'Clash Display',sans-serif;
@@ -839,10 +909,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 <body>
 <!-- ══════════ LOGIN PAGE ══════════ -->
 <div id="loginPage" style="display:none">
-  <div class="bg-orbs" style="position:absolute">
-    <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
-  </div>
-  <div class="login-card" style="position:relative;z-index:1">
+  <div class="login-card">
     <div class="login-logo">
       <div class="login-logo-ico">🏪</div>
       <div class="login-title">Sivasakthi Marketing</div>
@@ -886,7 +953,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 </div>
 
 <!-- Mobile bottom nav -->
-<nav class="mobile-nav" id="mobileNav" style="display:none">
+<nav class="mobile-nav hidden-nav" id="mobileNav">
   <button class="mob-btn active" id="mnDash" onclick="showPage('dashboard')">
     <span class="mob-ico">📊</span>Dashboard
   </button>
@@ -1014,8 +1081,14 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   <div id="sellv-detail" style="display:none">
     <div class="back-btn" onclick="backToShops()">← Back to Shops</div>
     <div class="sec-hdr">
-      <div class="sec-title" id="shopDetailName"></div>
-      <button class="btn btn-primary" id="addProductsBtn" onclick="addMoreSale()">＋ Add Products</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="sec-title" id="shopDetailName"></div>
+        <button class="btn-xs btn-edit" id="renameShopBtn" onclick="openRenameShop()" title="Edit customer name" style="display:none">✏️</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="addProductsBtn" onclick="addMoreSale()" style="display:none">＋ Add Bill</button>
+        <button class="btn btn-ghost" id="addOldBillDetailBtn" onclick="openOldBillForCurrentShop()" style="display:none;white-space:nowrap">📋 Old Bill</button>
+      </div>
     </div>
     <div id="shopSumCard" style="margin-bottom:20px"></div>
     <div class="sec-title" style="margin-bottom:12px">Transaction History</div>
@@ -1042,21 +1115,44 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
 <!-- Company modal -->
 <div class="modal-ov" id="mComp">
-  <div class="modal">
+  <div class="modal wide">
     <div class="modal-title"><span id="mCompTitle">Add Company</span><button class="modal-x" onclick="closeM('mComp')">✕</button></div>
-    <div class="fg"><label>Company Name</label><input type="text" id="cmpName" placeholder="e.g. Samsung Electronics"></div>
-    <div class="fg"><label>Description</label><input type="text" id="cmpDesc" placeholder="e.g. Electronics & Gadgets"></div>
     <div class="form-2col">
-      <div class="fg"><label>Total Purchased (₹)</label><input type="number" id="cmpPurchased" placeholder="0.00" oninput="calcCompPending()"></div>
-      <div class="fg"><label>Paid to Company (₹)</label><input type="number" id="cmpPaid" placeholder="0.00" oninput="calcCompPending()"></div>
+      <div class="fg"><label>Company Name</label><input type="text" id="cmpName" placeholder="e.g. Samsung Electronics"></div>
+      <div class="fg"><label>Description</label><input type="text" id="cmpDesc" placeholder="e.g. Electronics & Gadgets"></div>
     </div>
-    <div id="cmpPendingPreview" style="display:none;margin-bottom:14px;border-radius:12px;padding:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.2)">
-      <div style="font-size:.72rem;color:var(--text3);margin-bottom:4px">Pending to Company</div>
-      <div id="cmpPendingAmt" style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:700;color:var(--red)"></div>
+    <div style="border-top:1px solid var(--glass-border);margin:4px 0 14px;padding-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">📦 Purchase Records</div>
+        <button class="btn btn-ghost btn-sm" onclick="addPurchaseRow()">＋ Add Entry</button>
+      </div>
+      <div id="purchaseRows" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto"></div>
+      <div id="cmpTotalsPreview" style="margin-top:10px;border-radius:12px;padding:12px;background:var(--glass-bg);border:1px solid var(--glass-border);display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Total Purchased</div><div id="cmpTotPurch" style="font-family:'Clash Display',sans-serif;font-weight:700;color:var(--accent);font-size:.9rem"></div></div>
+          <div><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Total Paid</div><div id="cmpTotPaid" style="font-family:'Clash Display',sans-serif;font-weight:700;color:var(--green);font-size:.9rem"></div></div>
+          <div><div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Pending</div><div id="cmpTotPend" style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:.9rem"></div></div>
+        </div>
+      </div>
     </div>
     <div class="form-acts">
       <button class="btn btn-ghost" onclick="closeM('mComp')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveComp()">Save</button>
+      <button class="btn btn-primary" onclick="saveComp()">Save Company</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Payment to Company Purchase Modal -->
+<div class="modal-ov" id="mCompPay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title"><span>💳 Add Payment to Company</span><button class="modal-x" onclick="closeM('mCompPay')">✕</button></div>
+    <div id="mCompPayInfo" style="margin-bottom:14px;border-radius:12px;padding:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.2)"></div>
+    <div class="fg"><label>Payment Date</label><input type="date" id="cpayDate"></div>
+    <div class="fg"><label>Amount Paid (₹)</label><input type="number" id="cpayAmt" placeholder="0.00" oninput="updCompPayPreview()"></div>
+    <div id="cpayPreview" style="display:none;margin-bottom:10px;border-radius:10px;padding:10px;background:var(--glass-bg);border:1px solid var(--glass-border);font-size:.82rem"></div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mCompPay')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCompPay()">✓ Save Payment</button>
     </div>
   </div>
 </div>
@@ -1112,6 +1208,18 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="form-acts">
       <button class="btn btn-ghost" onclick="closeM('mSell')">Cancel</button>
       <button class="btn btn-primary" onclick="saveSale()">✓ Complete Sale</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Shop Modal -->
+<div class="modal-ov" id="mRenameShop">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title"><span>✏️ Edit Customer Name</span><button class="modal-x" onclick="closeM('mRenameShop')">✕</button></div>
+    <div class="fg"><label>Customer / Shop Name</label><input type="text" id="renameShopInp" placeholder="Enter name…"></div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mRenameShop')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRenameShop()">✓ Save Name</button>
     </div>
   </div>
 </div>
@@ -1261,7 +1369,7 @@ function showLoginPage(){
   document.querySelector('.header').style.display = 'none';
   document.getElementById('mobileNav').style.display = '';  // CSS media controls visibility
   // Actually hide it
-  document.getElementById('mobileNav').hidden = true;
+  document.getElementById('mobileNav').classList.add('hidden-nav');
   document.querySelector('.main').style.display = 'none';
   document.querySelector('.bg-orbs').style.display = 'none';
 }
@@ -1270,7 +1378,7 @@ function showAppPage(email){
   document.getElementById('loginPage').style.display = 'none';
   document.body.style.overflow = '';
   document.querySelector('.header').style.display = '';
-  document.getElementById('mobileNav').hidden = false;
+  document.getElementById('mobileNav').classList.remove('hidden-nav');
   document.querySelector('.main').style.display = '';
   document.querySelector('.bg-orbs').style.display = '';
   // Show user email badge
@@ -1747,78 +1855,243 @@ function renderCompFinanceBanner(id){
   const purchased=c.totalPurchased||0;
   const paid=c.totalPaid||0;
   const pending=Math.max(0,purchased-paid);
+  const records=(c.purchaseRecords||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Build per-record rows
+  const recRows = records.length ? records.map(r=>{
+    const rPend=Math.max(0,r.amount-r.paid);
+    return `
+    <div style="display:flex;align-items:center;gap:10px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:11px 14px;margin-bottom:8px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+          <span style="font-size:.78rem;font-weight:700">📅 ${fmtD(r.date)}</span>
+          ${r.note?`<span style="font-size:.7rem;color:var(--text3)">${r.note}</span>`:''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Purchased</div>
+            <div style="font-weight:700;color:var(--accent);font-size:.88rem">${fmt(r.amount)}</div>
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Paid</div>
+            <div style="font-weight:700;color:var(--green);font-size:.88rem">${fmt(r.paid)}</div>
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Pending</div>
+            <div style="font-weight:700;font-size:.88rem;color:${rPend>0?'var(--red)':'var(--green)'}">${rPend>0?fmt(rPend):'Cleared ✓'}</div>
+          </div>
+        </div>
+      </div>
+      ${isOwner()&&rPend>0?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.74rem;padding:5px 10px;white-space:nowrap" onclick="openCompPayModal('${id}','${r.id}')">＋ Pay</button>`:''}
+    </div>`;
+  }).join('') : '<div style="text-align:center;padding:14px;font-size:.8rem;color:var(--text3)">No purchase records. Click Edit to add entries.</div>';
+
   document.getElementById('compFinanceBanner').innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px">
-      <div class="stat-card sc-cyan" style="padding:16px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+      <div class="stat-card sc-cyan" style="padding:14px">
         <div class="stat-label">💳 Total Purchased</div>
-        <div class="stat-value" style="font-size:1.1rem">${fmt(purchased)}</div>
+        <div class="stat-value" style="font-size:1rem">${fmt(purchased)}</div>
       </div>
-      <div class="stat-card sc-green" style="padding:16px">
-        <div class="stat-label">✅ Paid to Company</div>
-        <div class="stat-value" style="font-size:1.1rem">${fmt(paid)}</div>
+      <div class="stat-card sc-green" style="padding:14px">
+        <div class="stat-label">✅ Total Paid</div>
+        <div class="stat-value" style="font-size:1rem">${fmt(paid)}</div>
       </div>
-      <div class="stat-card ${pending>0?'sc-red':'sc-green'}" style="padding:16px;position:relative">
-        <div class="stat-label">⚠️ Pending Amount</div>
-        <div class="stat-value" style="font-size:1.1rem">${pending>0?fmt(pending):'Cleared ✓'}</div>
+      <div class="stat-card ${pending>0?'sc-red':'sc-green'}" style="padding:14px">
+        <div class="stat-label">⚠️ Total Pending</div>
+        <div class="stat-value" style="font-size:1rem">${pending>0?fmt(pending):'Cleared ✓'}</div>
       </div>
     </div>
-    ${isOwner()?`<div style="display:flex;gap:8px;margin-bottom:4px">
-      <button class="btn btn-ghost btn-sm" onclick="openCompModal('${id}')">✏️ Edit Company / Amounts</button>
+    <div style="margin-bottom:10px">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Purchase History</div>
+      ${recRows}
+    </div>
+    ${isOwner()?`<div style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="openCompModal('${id}')">✏️ Edit / Add Purchase</button>
       <button class="btn btn-sm" style="background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="delComp('${id}')">🗑️ Delete Company</button>
     </div>`:''}
   `;
 }
 
+// ── Purchase rows state ──
+let _purchaseRows = [];
+
+function addPurchaseRow(entry=null){
+  const id = uid();
+  _purchaseRows.push({
+    id,
+    date: entry?entry.date:today(),
+    amount: entry?entry.amount:0,
+    paid: entry?entry.paid:0,
+    note: entry?entry.note:''
+  });
+  renderPurchaseRows();
+}
+
+function renderPurchaseRows(){
+  const cont = document.getElementById('purchaseRows');
+  if(!_purchaseRows.length){
+    cont.innerHTML = '<div style="text-align:center;padding:16px;font-size:.8rem;color:var(--text3)">No purchase records yet. Click + Add Entry to add one.</div>';
+    document.getElementById('cmpTotalsPreview').style.display='none';
+    return;
+  }
+  cont.innerHTML = _purchaseRows.map(r=>`
+    <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:11px 12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center">
+        <div>
+          <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Date</div>
+          <input type="date" value="${r.date}" onchange="updPRow('${r.id}','date',this.value)"
+            style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none">
+        </div>
+        <div>
+          <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Purchased (₹)</div>
+          <input type="number" value="${r.amount||''}" placeholder="0" onchange="updPRow('${r.id}','amount',this.value)"
+            style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none">
+        </div>
+        <div>
+          <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Paid (₹)</div>
+          <input type="number" value="${r.paid||''}" placeholder="0" onchange="updPRow('${r.id}','paid',this.value)"
+            style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none">
+        </div>
+        <button class="btn-xs btn-del" onclick="delPRow('${r.id}')" style="margin-top:16px">✕</button>
+      </div>
+      <div style="margin-top:6px">
+        <input type="text" value="${r.note||''}" placeholder="Note (optional)" onchange="updPRow('${r.id}','note',this.value)"
+          style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.76rem;width:100%;outline:none">
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:4px">
+        <span style="font-size:.72rem;color:${(r.amount-r.paid)>0?'var(--red)':'var(--green)'}">
+          ${(r.amount-r.paid)>0?'Pending: '+fmt(r.amount-r.paid):'Cleared ✓'}
+        </span>
+      </div>
+    </div>
+  `).join('');
+  // Update totals
+  const totPurch = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
+  const totPaid  = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.paid)||0),0);
+  const totPend  = Math.max(0,totPurch-totPaid);
+  document.getElementById('cmpTotPurch').textContent = fmt(totPurch);
+  document.getElementById('cmpTotPaid').textContent  = fmt(totPaid);
+  document.getElementById('cmpTotPend').textContent  = totPend>0?fmt(totPend):'Cleared ✓';
+  document.getElementById('cmpTotPend').style.color  = totPend>0?'var(--red)':'var(--green)';
+  document.getElementById('cmpTotalsPreview').style.display = '';
+}
+
+function updPRow(id,field,val){
+  const r=_purchaseRows.find(x=>x.id===id);
+  if(!r) return;
+  if(field==='amount'||field==='paid') r[field]=parseFloat(val)||0;
+  else r[field]=val;
+  renderPurchaseRows();
+}
+function delPRow(id){
+  _purchaseRows=_purchaseRows.filter(r=>r.id!==id);
+  renderPurchaseRows();
+}
+
 function openCompModal(id=null){
   editCompId=id;
+  _purchaseRows=[];
   document.getElementById('mCompTitle').textContent=id?'Edit Company':'Add Company';
   if(id){
     const c=db.companies.find(x=>x.id===id);
     document.getElementById('cmpName').value=c.name;
     document.getElementById('cmpDesc').value=c.desc||'';
-    document.getElementById('cmpPurchased').value=c.totalPurchased||'';
-    document.getElementById('cmpPaid').value=c.totalPaid||'';
-    calcCompPending();
+    // Load purchase records
+    if(c.purchaseRecords && c.purchaseRecords.length){
+      _purchaseRows = c.purchaseRecords.map(r=>({...r,id:r.id||uid()}));
+    } else if(c.totalPurchased>0) {
+      // Migrate old single-value to a record
+      _purchaseRows = [{id:uid(),date:today(),amount:c.totalPurchased||0,paid:c.totalPaid||0,note:'Migrated from old entry'}];
+    }
   } else {
-    ['cmpName','cmpDesc','cmpPurchased','cmpPaid'].forEach(x=>document.getElementById(x).value='');
-    document.getElementById('cmpPendingPreview').style.display='none';
+    document.getElementById('cmpName').value='';
+    document.getElementById('cmpDesc').value='';
+    _purchaseRows=[];
+    // Add one empty row for new company
+    addPurchaseRow();
+    openM('mComp');
+    return;
   }
+  renderPurchaseRows();
   openM('mComp');
 }
 
-function calcCompPending(){
-  const p=parseFloat(document.getElementById('cmpPurchased').value)||0;
-  const paid=parseFloat(document.getElementById('cmpPaid').value)||0;
-  const pending=Math.max(0,p-paid);
-  const el=document.getElementById('cmpPendingPreview');
-  if(p>0){
-    el.style.display='';
-    document.getElementById('cmpPendingAmt').textContent=pending>0?'₹'+Number(pending).toLocaleString('en-IN',{minimumFractionDigits:2}):'Cleared ✓';
-    document.getElementById('cmpPendingAmt').style.color=pending>0?'var(--red)':'var(--green)';
-  } else { el.style.display='none'; }
-}
+function calcCompPending(){ renderPurchaseRows(); } // kept for compatibility
 
 function saveComp(){
   const name=document.getElementById('cmpName').value.trim();
   if(!name){toast('Company name required','err');return;}
-  const purchased=parseFloat(document.getElementById('cmpPurchased').value)||0;
-  const paid=parseFloat(document.getElementById('cmpPaid').value)||0;
+  const desc=document.getElementById('cmpDesc').value.trim();
+  const records=_purchaseRows.map(r=>({
+    id:r.id,date:r.date,
+    amount:parseFloat(r.amount)||0,
+    paid:parseFloat(r.paid)||0,
+    note:r.note||''
+  }));
+  const totPurch=records.reduce((a,r)=>a+r.amount,0);
+  const totPaid =records.reduce((a,r)=>a+r.paid,0);
   if(editCompId){
     const c=db.companies.find(x=>x.id===editCompId);
-    c.name=name;
-    c.desc=document.getElementById('cmpDesc').value.trim();
-    c.totalPurchased=purchased;
-    c.totalPaid=paid;
+    c.name=name; c.desc=desc;
+    c.purchaseRecords=records;
+    c.totalPurchased=totPurch;
+    c.totalPaid=totPaid;
     toast('Company updated ✏️','ok','stock');
-    // refresh banner if we're inside products view
     if(currCompId===editCompId) renderCompFinanceBanner(editCompId);
   } else {
-    db.companies.push({id:uid(),name,desc:document.getElementById('cmpDesc').value.trim(),totalPurchased:purchased,totalPaid:paid});
+    db.companies.push({id:uid(),name,desc,purchaseRecords:records,totalPurchased:totPurch,totalPaid:totPaid});
     toast('Company added 🏢','ok','stock');
   }
   closeM('mComp');
   renderComps();
   if(document.getElementById('page-dashboard').classList.contains('active')) renderDash();
+  if(window.saveToFirestore) saveToFirestore();
+}
+
+// ── Company pay button in finance banner ──
+let _cpayCompId=null, _cpayRecordId=null;
+function openCompPayModal(compId, recordId){
+  _cpayCompId=compId; _cpayRecordId=recordId;
+  const c=db.companies.find(x=>x.id===compId);
+  const r=c.purchaseRecords.find(x=>x.id===recordId);
+  if(!r) return;
+  const pending=Math.max(0,r.amount-r.paid);
+  document.getElementById('mCompPayInfo').innerHTML=`
+    <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">📅 ${fmtD(r.date)}${r.note?' · '+r.note:''}</div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:.82rem">Billed: <strong>${fmt(r.amount)}</strong></span>
+      <span style="font-size:.82rem;color:var(--red)">Pending: <strong>${fmt(pending)}</strong></span>
+    </div>`;
+  document.getElementById('cpayDate').value=today();
+  document.getElementById('cpayAmt').value='';
+  document.getElementById('cpayPreview').style.display='none';
+  openM('mCompPay');
+}
+function updCompPayPreview(){
+  const c=db.companies.find(x=>x.id===_cpayCompId);
+  const r=c.purchaseRecords.find(x=>x.id===_cpayRecordId);
+  const amt=parseFloat(document.getElementById('cpayAmt').value)||0;
+  const pending=Math.max(0,r.amount-r.paid);
+  const after=Math.max(0,pending-amt);
+  const el=document.getElementById('cpayPreview');
+  if(amt>0){
+    el.style.display='';
+    el.innerHTML=`Pending after payment: <strong style="color:${after>0?'var(--red)':'var(--green)'}">${after>0?fmt(after):'Cleared ✓'}</strong>`;
+  } else el.style.display='none';
+}
+function saveCompPay(){
+  const c=db.companies.find(x=>x.id===_cpayCompId);
+  const r=c.purchaseRecords.find(x=>x.id===_cpayRecordId);
+  const amt=parseFloat(document.getElementById('cpayAmt').value)||0;
+  if(!amt||amt<=0){toast('Enter valid amount','err');return;}
+  const pending=Math.max(0,r.amount-r.paid);
+  if(amt>pending){toast('Amount exceeds pending '+fmt(pending),'err');return;}
+  r.paid+=amt;
+  c.totalPaid=(c.purchaseRecords.reduce((a,x)=>a+x.paid,0));
+  toast('Payment recorded ✓','ok','pay');
+  closeM('mCompPay');
+  renderCompFinanceBanner(_cpayCompId);
+  renderComps();
   if(window.saveToFirestore) saveToFirestore();
 }
 
@@ -1961,6 +2234,38 @@ function renderShops(){
   }).join('');
 }
 function filterShops(){renderShops();}
+
+// ── Rename Shop ──
+function openRenameShop(){
+  const sh=db.shops.find(x=>x.id===currShopId);
+  if(!sh) return;
+  document.getElementById('renameShopInp').value=sh.name;
+  openM('mRenameShop');
+}
+function saveRenameShop(){
+  const sh=db.shops.find(x=>x.id===currShopId);
+  if(!sh) return;
+  const name=document.getElementById('renameShopInp').value.trim();
+  if(!name){toast('Enter a name','err');return;}
+  sh.name=name;
+  document.getElementById('shopDetailName').textContent=name;
+  toast('Customer renamed ✓','ok','stock');
+  closeM('mRenameShop');
+  renderShops();
+  if(window.saveToFirestore) saveToFirestore();
+}
+
+// ── Old bill for current shop (from detail view) ──
+function openOldBillForCurrentShop(){
+  const sh=db.shops.find(x=>x.id===currShopId);
+  if(!sh) return;
+  openOldBillModal();
+  // Pre-fill customer
+  setTimeout(()=>{
+    document.getElementById('obCustomer').value=sh.name;
+    document.getElementById('obCustomer').dataset.shopId=sh.id;
+  },50);
+}
 function delShop(id){
   customConfirm('Delete this shop and all its sales history?','🏪','Delete Shop', ok=>{
     if(!ok) return;
@@ -2290,7 +2595,11 @@ function openShopDetail(id){
   const sh=db.shops.find(x=>x.id===id);
   // Show/hide owner-only buttons
   const apBtn=document.getElementById('addProductsBtn');
+  const rnBtn=document.getElementById('renameShopBtn');
+  const obBtn=document.getElementById('addOldBillDetailBtn');
   if(apBtn) apBtn.style.display=isOwner()?'':' none';
+  if(rnBtn) rnBtn.style.display=isOwner()?'':' none';
+  if(obBtn) obBtn.style.display=isOwner()?'':' none';
   document.getElementById('shopDetailName').textContent=sh.name;
   const tb=sh.sessions.reduce((a,s)=>a+s.total,0);
   const tp=sh.sessions.reduce((a,s)=>a+s.paid,0);
