@@ -8,6 +8,7 @@
 <!-- Firebase (compat build — works with regular scripts, no module scope issues) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyC5vNdc4T7nSlBmojAQi05QGYWBy9oxCI8",
@@ -20,6 +21,45 @@
   };
   firebase.initializeApp(firebaseConfig);
   const _db = firebase.firestore();
+  const _auth = firebase.auth();
+
+  // ── Auth helpers ──
+  window.doLogin = async function(email, password) {
+    try {
+      await _auth.signInWithEmailAndPassword(email, password);
+      return {ok:true};
+    } catch(e) {
+      return {ok:false, msg: e.message};
+    }
+  };
+  window.doLogout = async function() {
+    await _auth.signOut();
+    showLoginPage();
+  };
+  window.doCreateStaff = async function(email, password) {
+    // Use secondary app instance to create without logging out owner
+    const secondaryApp = firebase.initializeApp(firebaseConfig, 'secondary_'+Date.now());
+    try {
+      await secondaryApp.auth().createUserWithEmailAndPassword(email, password);
+      await secondaryApp.auth().signOut();
+      return {ok:true};
+    } catch(e) {
+      return {ok:false, msg: e.message};
+    } finally {
+      secondaryApp.delete();
+    }
+  };
+
+  // ── Auth state watcher ──
+  _auth.onAuthStateChanged(user => {
+    if (user) {
+      window._currentUser = user;
+      showAppPage(user.email);
+    } else {
+      window._currentUser = null;
+      showLoginPage();
+    }
+  });
 
   window.saveToFirestore = async function() {
     try {
@@ -27,6 +67,7 @@
         companies: db.companies,
         products:  db.products,
         shops:     db.shops,
+        staffList: db.staffList||[],
         updatedAt: new Date().toISOString()
       });
     } catch(e) {
@@ -43,6 +84,7 @@
         if (data.companies && data.companies.length) db.companies = data.companies;
         if (data.products  && data.products.length)  db.products  = data.products;
         if (data.shops     && data.shops.length)     db.shops     = data.shops;
+        if (data.staffList && data.staffList.length)  db.staffList = data.staffList;
       }
       document.getElementById('db-status').textContent = '🟢 Cloud Sync ON';
     } catch(e) {
@@ -51,7 +93,7 @@
     }
     const now = new Date();
     document.getElementById('chartMonth').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    renderDash(); renderComps(); renderShops();
+    renderDash(); renderComps(); renderShops(); renderStaffTab();
   };
 </script>
 <style>
@@ -716,30 +758,135 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   .sess-hdr{padding:11px 13px}
   .sess-body{padding:12px 13px}
 }
+
+/* ─── LOGIN PAGE ─── */
+#loginPage{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-base);
+  padding:20px;
+}
+.login-card{
+  width:100%;max-width:420px;
+  background:var(--glass-bg);
+  border:1px solid var(--glass-border);
+  border-radius:28px;
+  backdrop-filter:blur(40px) saturate(200%);
+  -webkit-backdrop-filter:blur(40px) saturate(200%);
+  box-shadow:var(--glass-shadow-h);
+  padding:40px 36px;
+  animation:slideUp .4s cubic-bezier(.34,1.56,.64,1);
+}
+.login-logo{
+  text-align:center;margin-bottom:32px;
+}
+.login-logo-ico{
+  width:72px;height:72px;border-radius:22px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;margin:0 auto 14px;
+  box-shadow:0 8px 32px rgba(236,72,153,.4);
+  animation:orbFloat 4s ease-in-out infinite;
+}
+.login-title{
+  font-family:'Clash Display',sans-serif;
+  font-size:1.5rem;font-weight:700;color:var(--text);
+  margin-bottom:4px;
+}
+.login-sub{font-size:.82rem;color:var(--text3)}
+.login-err{
+  background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);
+  border-radius:11px;padding:11px 14px;font-size:.82rem;color:var(--red);
+  margin-bottom:16px;display:none;
+}
+.login-btn{
+  width:100%;padding:13px;border-radius:14px;border:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:.92rem;font-weight:700;cursor:pointer;
+  box-shadow:0 6px 20px rgba(236,72,153,.35);
+  transition:all .25s;margin-top:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(236,72,153,.45)}
+.login-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+
+/* ─── STAFF TAB ─── */
+.staff-card{
+  background:var(--glass-bg);border:1px solid var(--glass-border);
+  border-radius:16px;padding:18px;display:flex;align-items:center;gap:14px;
+  backdrop-filter:blur(12px);margin-bottom:10px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.staff-card:hover{border-color:var(--glass-border-h);box-shadow:0 4px 16px rgba(236,72,153,.08)}
+.staff-ava{
+  width:44px;height:44px;border-radius:13px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:1rem;color:#fff;
+  box-shadow:0 4px 12px rgba(236,72,153,.3);
+}
+.staff-info{flex:1;min-width:0}
+.staff-name{font-weight:700;font-size:.92rem;margin-bottom:2px}
+.staff-email{font-size:.76rem;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.staff-badge{
+  padding:3px 10px;border-radius:20px;font-size:.69rem;font-weight:700;
+  background:rgba(134,239,172,.12);color:var(--green);
+}
+.owner-badge{background:rgba(249,168,212,.12);color:var(--accent);}
 </style>
 </head>
 <body>
-<div class="bg-orbs">
+<!-- ══════════ LOGIN PAGE ══════════ -->
+<div id="loginPage" style="display:none">
+  <div class="bg-orbs" style="position:absolute">
+    <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+  </div>
+  <div class="login-card" style="position:relative;z-index:1">
+    <div class="login-logo">
+      <div class="login-logo-ico">🏪</div>
+      <div class="login-title">Sivasakthi Marketing</div>
+      <div class="login-sub">Sign in to your account</div>
+    </div>
+    <div id="loginErr" class="login-err"></div>
+    <div class="fg"><label>Email Address</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"></div>
+    <div class="fg">
+      <label>Password</label>
+      <div style="position:relative">
+        <input type="password" id="loginPass" placeholder="Your password" autocomplete="current-password" style="width:100%;padding-right:44px" onkeydown="if(event.key==='Enter')tryLogin()">
+        <button onclick="togglePassVis('loginPass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.1rem">👁</button>
+      </div>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">
+      <span>🔐</span> Sign In
+    </button>
+  </div>
+</div>
+
+<div class="bg-orbs" style="display:none">
   <div class="orb orb1"></div>
   <div class="orb orb2"></div>
   <div class="orb orb3"></div>
 </div>
 
-<div class="header">
+<div class="header" style="display:none">
   <div class="logo">Sivasakthi <span>Marketing</span></div>
   <nav class="nav">
     <button class="nav-btn active" onclick="showPage('dashboard')">📊 Dashboard</button>
     <button class="nav-btn" onclick="showPage('stock')">📦 Stock</button>
     <button class="nav-btn" onclick="showPage('sell')">🛒 Sell</button>
+    <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
   </nav>
   <div style="display:flex;align-items:center;gap:8px">
+    <span id="userEmailBadge" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
     <span id="db-status" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap">⏳ Loading…</span>
     <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem">🚪</button>
   </div>
 </div>
 
 <!-- Mobile bottom nav -->
-<nav class="mobile-nav" id="mobileNav">
+<nav class="mobile-nav" id="mobileNav" style="display:none">
   <button class="mob-btn active" id="mnDash" onclick="showPage('dashboard')">
     <span class="mob-ico">📊</span>Dashboard
   </button>
@@ -749,9 +896,12 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   <button class="mob-btn" id="mnSell" onclick="showPage('sell')">
     <span class="mob-ico">🛒</span>Sell
   </button>
+  <button class="mob-btn" id="mnStaff" onclick="showPage('staff')" style="display:none">
+    <span class="mob-ico">👥</span>Staff
+  </button>
 </nav>
 
-<div class="main">
+<div class="main" style="display:none">
 
 <!-- ══════════ DASHBOARD ══════════ -->
 <div class="page active" id="page-dashboard">
@@ -802,7 +952,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <span style="color:var(--text3)">🔍</span>
           <input type="text" placeholder="Search company or product…" id="stockSearch" oninput="filterCompanies()">
         </div>
-        <button class="btn btn-primary" onclick="openCompModal()">＋ Add Company</button>
+        <button class="btn btn-primary" id="addCompBtn" onclick="openCompModal()">＋ Add Company</button>
       </div>
     </div>
     <div class="company-grid" id="compGrid"></div>
@@ -820,7 +970,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <span style="color:var(--text3)">🔍</span>
           <input type="text" placeholder="Search product…" id="prodSearch" oninput="filterProds()">
         </div>
-        <button class="btn btn-primary" onclick="openProdModal()">＋ Add Product</button>
+        <button class="btn btn-primary" id="addProdBtn" onclick="openProdModal()">＋ Add Product</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -845,7 +995,10 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <span style="color:var(--text3)">🔍</span>
           <input type="text" placeholder="Search shop…" id="shopSearch" oninput="filterShops()">
         </div>
-        <button class="btn btn-primary" onclick="openSellModal()">＋ New Sale</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="sellHeaderBtns">
+          <button class="btn btn-primary" id="newSaleBtn" onclick="openSellModal()">＋ New Sale</button>
+          <button class="btn btn-ghost" id="oldBillBtn" onclick="openOldBillModal()" style="white-space:nowrap">📋 Old Bill</button>
+        </div>
       </div>
     </div>
     <div class="table-wrap">
@@ -862,11 +1015,24 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="back-btn" onclick="backToShops()">← Back to Shops</div>
     <div class="sec-hdr">
       <div class="sec-title" id="shopDetailName"></div>
-      <button class="btn btn-primary" onclick="addMoreSale()">＋ Add Products</button>
+      <button class="btn btn-primary" id="addProductsBtn" onclick="addMoreSale()">＋ Add Products</button>
     </div>
     <div id="shopSumCard" style="margin-bottom:20px"></div>
     <div class="sec-title" style="margin-bottom:12px">Transaction History</div>
     <div id="shopHistory"></div>
+  </div>
+</div>
+
+
+<!-- ══════════ STAFF ══════════ -->
+<div class="page" id="page-staff">
+  <div id="staffOwnerView">
+    <div class="sec-hdr">
+      <div class="sec-title">👥 Staff Management</div>
+      <button class="btn btn-primary" id="addStaffBtn" onclick="openAddStaff()">＋ Add Staff</button>
+    </div>
+    <div id="ownerInfo" style="margin-bottom:20px"></div>
+    <div id="staffList"></div>
   </div>
 </div>
 
@@ -950,6 +1116,29 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
+<!-- Old Bill Entry modal -->
+<div class="modal-ov" id="mOldBill">
+  <div class="modal">
+    <div class="modal-title"><span>📋 Add Old Bill</span><button class="modal-x" onclick="closeM('mOldBill')">✕</button></div>
+    <p style="font-size:.82rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Enter a previous unpaid bill amount for this customer. It will be carried forward and added to their next new purchase.</p>
+    <div class="fg ac-wrap">
+      <label>Customer Name</label>
+      <input type="text" id="obCustomer" placeholder="Type customer name…" oninput="obCustomerAC()" autocomplete="off">
+      <div class="ac-list" id="obSugg" style="display:none"></div>
+    </div>
+    <div class="fg"><label>Bill Date</label><input type="date" id="obDate"></div>
+    <div class="fg"><label>Old Bill Amount (₹)</label><input type="number" id="obAmount" placeholder="e.g. 2000" oninput="updObSummary()"></div>
+    <div class="fg"><label>Amount Already Paid (₹)</label><input type="number" id="obPaid" placeholder="0.00" oninput="updObSummary()"></div>
+    <div id="obSummary" style="display:none;margin-bottom:14px;border-radius:12px;padding:14px;background:var(--glass-bg);border:1px solid var(--glass-border)">
+      <div id="obSummaryContent"></div>
+    </div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mOldBill')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveOldBill()">💾 Save Old Bill</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Payment modal (for existing sessions) -->
 <div class="modal-ov" id="mAddPay">
   <div class="modal">
@@ -1010,6 +1199,28 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
+<!-- Add Staff Modal -->
+<div class="modal-ov" id="mAddStaff">
+  <div class="modal">
+    <div class="modal-title"><span>👤 Add Staff Member</span><button class="modal-x" onclick="closeM('mAddStaff')">✕</button></div>
+    <p style="font-size:.82rem;color:var(--text3);margin-bottom:16px;line-height:1.5">Staff members can view all tabs but cannot add, edit, or delete any data.</p>
+    <div class="fg"><label>Staff Name</label><input type="text" id="staffName" placeholder="e.g. Rajan Kumar"></div>
+    <div class="fg"><label>Email Address</label><input type="email" id="staffEmail" placeholder="staff@email.com"></div>
+    <div class="fg">
+      <label>Password</label>
+      <div style="position:relative">
+        <input type="password" id="staffPass" placeholder="Create a password" style="width:100%;padding-right:44px">
+        <button onclick="togglePassVis('staffPass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.1rem">👁</button>
+      </div>
+    </div>
+    <div id="staffAddErr" style="display:none;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);border-radius:11px;padding:11px 14px;font-size:.82rem;color:var(--red);margin-bottom:12px"></div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mAddStaff')">Cancel</button>
+      <button class="btn btn-primary" id="saveStaffBtn" onclick="saveStaffMember()">✓ Create Staff Account</button>
+    </div>
+  </div>
+</div>
+
 <!-- Custom Confirm Dialog -->
 <div class="modal-ov" id="mConfirm">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -1032,11 +1243,82 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 let db = {
   companies:[],
   products:[],
-  shops:[]
+  shops:[],
+  staffList:[]  // {id, name, email, createdAt}
   // shop:{id,name,sessions:[]}
   // session:{id,date,items:[{productId,name,sellPrice,qty}],total,paid,payMethod,balance,prevBalance,payments:[]}
   // payment:{id,date,amount,method}
 };
+
+const OWNER_EMAIL = 'vetrivishva217@gmail.com';
+
+function isOwner(){ return window._currentUser && window._currentUser.email === OWNER_EMAIL; }
+
+function showLoginPage(){
+  document.getElementById('loginPage').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // Hide app shell
+  document.querySelector('.header').style.display = 'none';
+  document.getElementById('mobileNav').style.display = '';  // CSS media controls visibility
+  // Actually hide it
+  document.getElementById('mobileNav').hidden = true;
+  document.querySelector('.main').style.display = 'none';
+  document.querySelector('.bg-orbs').style.display = 'none';
+}
+
+function showAppPage(email){
+  document.getElementById('loginPage').style.display = 'none';
+  document.body.style.overflow = '';
+  document.querySelector('.header').style.display = '';
+  document.getElementById('mobileNav').hidden = false;
+  document.querySelector('.main').style.display = '';
+  document.querySelector('.bg-orbs').style.display = '';
+  // Show user email badge
+  const badge = document.getElementById('userEmailBadge');
+  badge.textContent = '👤 ' + (email||'');
+  badge.style.display = '';
+  // Owner vs staff permissions
+  const staffBtn = document.getElementById('navStaffBtn');
+  const mnStaff = document.getElementById('mnStaff');
+  if(isOwner()){
+    staffBtn.style.display = '';
+    mnStaff.style.display = '';
+  } else {
+    staffBtn.style.display = 'none';
+    mnStaff.style.display = 'none';
+    // Hide stock add button for staff (will be done in showPage)
+  }
+  // Init page
+  const now2 = new Date();
+  document.getElementById('chartMonth').value = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
+  if(window.loadFromFirestore) loadFromFirestore();
+  else { renderDash(); renderComps(); renderShops(); }
+}
+
+// (staff view-only is handled per-render via isOwner() checks)
+
+function togglePassVis(inputId, btn){
+  const inp = document.getElementById(inputId);
+  if(inp.type === 'password'){ inp.type='text'; btn.textContent='🙈'; }
+  else { inp.type='password'; btn.textContent='👁'; }
+}
+
+async function tryLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  const btn   = document.getElementById('loginBtn');
+  const err   = document.getElementById('loginErr');
+  if(!email||!pass){ err.textContent='Please enter email and password.'; err.style.display=''; return; }
+  btn.disabled = true; btn.innerHTML = '<span>⏳</span> Signing in…';
+  err.style.display = 'none';
+  const res = await window.doLogin(email, pass);
+  if(!res.ok){
+    err.textContent = res.msg.includes('wrong-password')||res.msg.includes('invalid-credential') ? 'Incorrect email or password.' : res.msg;
+    err.style.display = '';
+    btn.disabled = false; btn.innerHTML = '<span>🔐</span> Sign In';
+  }
+  // On success, onAuthStateChanged fires showAppPage automatically
+}
 
 function seedData(){
   db.companies = [
@@ -1204,16 +1486,30 @@ function toggleTheme(){
 function showPage(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  const idx=['dashboard','stock','sell'].indexOf(name);
-  if(idx>=0) document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  const pg = document.getElementById('page-'+name);
+  if(pg) pg.classList.add('active');
+  const idx=['dashboard','stock','sell','staff'].indexOf(name);
+  const btns = document.querySelectorAll('.nav-btn');
+  if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
   // Update mobile bottom nav
-  ['mnDash','mnStock','mnSell'].forEach(id=>document.getElementById(id).classList.remove('active'));
-  const mMap={dashboard:'mnDash',stock:'mnStock',sell:'mnSell'};
-  if(mMap[name]) document.getElementById(mMap[name]).classList.add('active');
+  ['mnDash','mnStock','mnSell','mnStaff'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
+  const mMap={dashboard:'mnDash',stock:'mnStock',sell:'mnSell',staff:'mnStaff'};
+  if(mMap[name]){const el=document.getElementById(mMap[name]);if(el)el.classList.add('active');}
   if(name==='dashboard') renderDash();
-  if(name==='stock'){showComps();renderComps();}
-  if(name==='sell') renderShops();
+  if(name==='stock'){
+    showComps();renderComps();
+    const acb=document.getElementById('addCompBtn');
+    if(acb) acb.style.display=isOwner()?'':' none';
+  }
+  if(name==='sell'){
+    renderShops();
+    // Hide action buttons for staff
+    const nsb=document.getElementById('newSaleBtn');
+    const obb=document.getElementById('oldBillBtn');
+    if(nsb) nsb.style.display=isOwner()?'':' none';
+    if(obb) obb.style.display=isOwner()?'':' none';
+  }
+  if(name==='staff') renderStaffTab();
 }
 
 // ══════════════════════════════════════════
@@ -1421,10 +1717,10 @@ function renderComps(){
           <span>👆</span><span>Tap to view products</span>
         </div>
       </div>
-      <div class="comp-actions" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border)">
+      ${isOwner()?`<div class="comp-actions" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--glass-border)">
         <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center" onclick="event.stopPropagation();openCompModal('${c.id}')">✏️ Edit</button>
         <button class="btn btn-sm" style="flex:1;justify-content:center;background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="event.stopPropagation();delComp('${c.id}')">🗑️ Delete</button>
-      </div>
+      </div>`:''}
     </div>`;
   }).join('');
 }
@@ -1466,10 +1762,10 @@ function renderCompFinanceBanner(id){
         <div class="stat-value" style="font-size:1.1rem">${pending>0?fmt(pending):'Cleared ✓'}</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:4px">
+    ${isOwner()?`<div style="display:flex;gap:8px;margin-bottom:4px">
       <button class="btn btn-ghost btn-sm" onclick="openCompModal('${id}')">✏️ Edit Company / Amounts</button>
       <button class="btn btn-sm" style="background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="delComp('${id}')">🗑️ Delete Company</button>
-    </div>
+    </div>`:''}
   `;
 }
 
@@ -1561,8 +1857,8 @@ function renderProds(){
       <td>
         <div style="display:flex;gap:5px">
           <button class="btn-xs btn-view" onclick="viewProd('${p.id}')" title="View">👁️</button>
-          <button class="btn-xs btn-edit" onclick="openProdModal('${p.id}')" title="Edit">✏️</button>
-          <button class="btn-xs btn-del" onclick="delProd('${p.id}')" title="Delete">🗑️</button>
+          ${isOwner()?`<button class="btn-xs btn-edit" onclick="openProdModal('${p.id}')" title="Edit">✏️</button>
+          <button class="btn-xs btn-del" onclick="delProd('${p.id}')" title="Delete">🗑️</button>`:''}
         </div>
       </td>
     </tr>
@@ -1658,8 +1954,8 @@ function renderShops(){
       <td><span class="due-badge ${bal>0?'due-red':'due-green'}">${bal>0?fmt(bal):'Settled ✓'}</span></td>
       <td><div style="display:flex;gap:5px">
         <button class="btn-xs btn-view" onclick="openShopDetail('${sh.id}')" title="View">👁️</button>
-        <button class="btn-xs btn-edit" onclick="openSellModal(null,'${sh.id}')" title="Add Sale">➕</button>
-        <button class="btn-xs btn-del" onclick="delShop('${sh.id}')" title="Delete">🗑️</button>
+        ${isOwner()?`<button class="btn-xs btn-edit" onclick="openSellModal(null,'${sh.id}')" title="Add Sale">➕</button>
+        <button class="btn-xs btn-del" onclick="delShop('${sh.id}')" title="Delete">🗑️</button>`:''}
       </div></td>
     </tr>`;
   }).join('');
@@ -1805,6 +2101,81 @@ function selPay(btn,m){
   btn.classList.add('on');
 }
 
+// ══════════════════════════════════════════
+// OLD BILL ENTRY
+// ══════════════════════════════════════════
+function openOldBillModal(){
+  document.getElementById('obCustomer').value='';
+  document.getElementById('obCustomer').dataset.shopId='';
+  document.getElementById('obDate').value=today();
+  document.getElementById('obAmount').value='';
+  document.getElementById('obPaid').value='';
+  document.getElementById('obSummary').style.display='none';
+  document.getElementById('obSugg').style.display='none';
+  openM('mOldBill');
+}
+function obCustomerAC(){
+  const q=document.getElementById('obCustomer').value.toLowerCase();
+  const su=document.getElementById('obSugg');
+  if(!q){su.style.display='none';return;}
+  const m=db.shops.filter(s=>s.name.toLowerCase().includes(q));
+  const newOpt={id:'__new__',name:document.getElementById('obCustomer').value};
+  const list=[...m];
+  if(!m.find(s=>s.name.toLowerCase()===q)) list.push(newOpt);
+  if(!list.length){su.style.display='none';return;}
+  su.style.display='';
+  su.innerHTML=list.map(s=>`<div class="ac-item" onclick="selObCustomer('${s.id}','${s.name.replace(/'/g,"\\'")}')">
+    <span>${s.name}</span><span class="ac-price">${s.id==='__new__'?'New Customer':'Existing'}</span>
+  </div>`).join('');
+}
+function selObCustomer(id,name){
+  document.getElementById('obCustomer').value=name;
+  document.getElementById('obCustomer').dataset.shopId=id==='__new__'?'':id;
+  document.getElementById('obSugg').style.display='none';
+  updObSummary();
+}
+function updObSummary(){
+  const amt=parseFloat(document.getElementById('obAmount').value)||0;
+  const paid=parseFloat(document.getElementById('obPaid').value)||0;
+  const bal=Math.max(0,amt-paid);
+  const el=document.getElementById('obSummary');
+  if(amt>0){
+    el.style.display='';
+    document.getElementById('obSummaryContent').innerHTML=`
+      <div class="ss-row"><span class="lbl">Old Bill Total</span><span class="val">${fmt(amt)}</span></div>
+      <div class="ss-row paid"><span class="lbl">Already Paid</span><span class="val">${fmt(paid)}</span></div>
+      <div class="ss-row tot ${bal>0?'due':'paid'}"><span class="lbl">Balance to Carry Forward</span><span class="val">${bal>0?fmt(bal):'₹0.00 ✓'}</span></div>
+    `;
+  } else el.style.display='none';
+}
+function saveOldBill(){
+  const name=document.getElementById('obCustomer').value.trim();
+  if(!name){toast('Enter customer name','err');return;}
+  const amt=parseFloat(document.getElementById('obAmount').value)||0;
+  if(!amt||amt<=0){toast('Enter a valid bill amount','err');return;}
+  const paid=parseFloat(document.getElementById('obPaid').value)||0;
+  const date=document.getElementById('obDate').value||today();
+  const bal=Math.max(0,amt-paid);
+  let sid=document.getElementById('obCustomer').dataset.shopId;
+  let shop=sid?db.shops.find(x=>x.id===sid):db.shops.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!shop){shop={id:uid(),name,sessions:[]};db.shops.push(shop);}
+  // Store as a session with type='oldbill' — no products, just the amount
+  const sess={
+    id:uid(), date, type:'oldbill',
+    items:[], newBillTotal:amt,
+    total:amt, prevBalance:0,
+    paid, payMethod:'Cash',
+    balance:bal,
+    note:'Old Bill Entry',
+    payments: paid>0?[{id:uid(),date,amount:paid,method:'Cash'}]:[]
+  };
+  shop.sessions.push(sess);
+  toast('Old bill saved ✓','ok','pay');
+  closeM('mOldBill');
+  renderShops();
+  if(window.saveToFirestore) saveToFirestore();
+}
+
 function saveSale(){
   const shopName=document.getElementById('shopNameInp').value.trim();
   if(!shopName){toast('Enter shop name','err');return;}
@@ -1917,6 +2288,9 @@ function saveAddPay(){
 function openShopDetail(id){
   currShopId=id;
   const sh=db.shops.find(x=>x.id===id);
+  // Show/hide owner-only buttons
+  const apBtn=document.getElementById('addProductsBtn');
+  if(apBtn) apBtn.style.display=isOwner()?'':' none';
   document.getElementById('shopDetailName').textContent=sh.name;
   const tb=sh.sessions.reduce((a,s)=>a+s.total,0);
   const tp=sh.sessions.reduce((a,s)=>a+s.paid,0);
@@ -1936,6 +2310,8 @@ function openShopDetail(id){
   const sessions=[...sh.sessions].reverse();
   document.getElementById('shopHistory').innerHTML=sessions.length?sessions.map((sess,ri)=>{
     // Support both old (total=grandTotal) and new (newBillTotal) records
+    // Old bill type renders differently
+    const isOldBill = sess.type === 'oldbill';
     const newBill = sess.newBillTotal !== undefined ? sess.newBillTotal : (sess.prevBalance>0 ? sess.total - sess.prevBalance : sess.total);
     const grandTotal = sess.total;
     const prevBal = sess.prevBalance || 0;
@@ -1943,10 +2319,10 @@ function openShopDetail(id){
     <div class="session-block">
       <div class="sess-hdr" onclick="toggleSess(this)">
         <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:36px;height:36px;border-radius:10px;background:rgba(249,168,212,.1);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${pi[sess.payMethod]||'💳'}</div>
+          <div style="width:36px;height:36px;border-radius:10px;background:${isOldBill?'rgba(251,191,36,.1)':'rgba(249,168,212,.1)'};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${isOldBill?'📋':pi[sess.payMethod]||'💳'}</div>
           <div>
-            <div style="font-size:.87rem;font-weight:700">📅 ${fmtD(sess.date)}</div>
-            <div style="font-size:.73rem;color:var(--text3)">${sess.items.length} item(s) · ${sess.payMethod}</div>
+            <div style="font-size:.87rem;font-weight:700">📅 ${fmtD(sess.date)}${isOldBill?' <span style="font-size:.7rem;background:rgba(251,191,36,.15);color:var(--warn);border-radius:6px;padding:2px 7px;margin-left:6px">Old Bill</span>':''}</div>
+            <div style="font-size:.73rem;color:var(--text3)">${isOldBill?'Previous Bill Entry':sess.items.length+' item(s) · '+sess.payMethod}</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -1954,9 +2330,9 @@ function openShopDetail(id){
             <div style="font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--accent)">${fmt(grandTotal)}</div>
             <span class="due-badge ${sess.balance>0?'due-red':'due-green'}">${sess.balance>0?'Due: '+fmt(sess.balance):'Settled ✓'}</span>
           </div>
-          ${sess.balance>0?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.75rem;padding:5px 10px" onclick="event.stopPropagation();openAddPay('${sh.id}','${sess.id}')">＋ Pay</button>`:''}
-          <button class="btn-xs btn-edit" style="width:28px;height:28px" title="Edit Session" onclick="event.stopPropagation();openEditSess('${sh.id}','${sess.id}')">✏️</button>
-          <button class="btn-xs btn-del" style="width:28px;height:28px" title="Delete Session" onclick="event.stopPropagation();delSess('${sh.id}','${sess.id}')">🗑️</button>
+          ${(sess.balance>0&&isOwner())?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.75rem;padding:5px 10px" onclick="event.stopPropagation();openAddPay('${sh.id}','${sess.id}')">＋ Pay</button>`:''}
+          ${isOwner()?`<button class="btn-xs btn-edit" style="width:28px;height:28px" title="Edit Session" onclick="event.stopPropagation();openEditSess('${sh.id}','${sess.id}')">✏️</button>
+          <button class="btn-xs btn-del" style="width:28px;height:28px" title="Delete Session" onclick="event.stopPropagation();delSess('${sh.id}','${sess.id}')">🗑️</button>`:''}
           <span style="color:var(--text3);font-size:.8rem">▾</span>
         </div>
       </div>
@@ -2148,19 +2524,91 @@ function saveEditSess(){
 }
 
 // ══════════════════════════════════════════
+// STAFF MANAGEMENT
+// ══════════════════════════════════════════
+function renderStaffTab(){
+  const owned = isOwner();
+  // Owner info
+  document.getElementById('ownerInfo').innerHTML=`
+    <div class="staff-card" style="border-color:rgba(249,168,212,.3)">
+      <div class="staff-ava">👑</div>
+      <div class="staff-info">
+        <div class="staff-name">Owner</div>
+        <div class="staff-email">${OWNER_EMAIL}</div>
+      </div>
+      <span class="staff-badge owner-badge">Owner</span>
+    </div>`;
+  const sl = db.staffList||[];
+  if(!sl.length){
+    document.getElementById('staffList').innerHTML='<div class="empty"><div class="empty-ico">👥</div><div style="font-size:.8rem">No staff added yet</div></div>';
+    return;
+  }
+  document.getElementById('staffList').innerHTML = sl.map(s=>`
+    <div class="staff-card">
+      <div class="staff-ava">${s.name.substr(0,1).toUpperCase()}</div>
+      <div class="staff-info">
+        <div class="staff-name">${s.name}</div>
+        <div class="staff-email">${s.email}</div>
+      </div>
+      <span class="staff-badge">Staff</span>
+      ${owned?`<button class="btn-xs btn-del" onclick="delStaff('${s.id}')" title="Remove">🗑️</button>`:''}
+    </div>`).join('');
+}
+
+function openAddStaff(){
+  document.getElementById('staffName').value='';
+  document.getElementById('staffEmail').value='';
+  document.getElementById('staffPass').value='';
+  document.getElementById('staffAddErr').style.display='none';
+  document.getElementById('saveStaffBtn').disabled=false;
+  document.getElementById('saveStaffBtn').textContent='✓ Create Staff Account';
+  openM('mAddStaff');
+}
+
+async function saveStaffMember(){
+  const name=document.getElementById('staffName').value.trim();
+  const email=document.getElementById('staffEmail').value.trim();
+  const pass=document.getElementById('staffPass').value;
+  const errEl=document.getElementById('staffAddErr');
+  const btn=document.getElementById('saveStaffBtn');
+  errEl.style.display='none';
+  if(!name){errEl.textContent='Enter staff name.';errEl.style.display='';return;}
+  if(!email){errEl.textContent='Enter email address.';errEl.style.display='';return;}
+  if(!pass||pass.length<6){errEl.textContent='Password must be at least 6 characters.';errEl.style.display='';return;}
+  btn.disabled=true; btn.textContent='⏳ Creating…';
+  const res = await window.doCreateStaff(email, pass);
+  if(!res.ok){
+    errEl.textContent = res.msg.includes('email-already-in-use')?'This email is already registered.':res.msg;
+    errEl.style.display='';
+    btn.disabled=false; btn.textContent='✓ Create Staff Account';
+    return;
+  }
+  if(!db.staffList) db.staffList=[];
+  db.staffList.push({id:uid(), name, email, createdAt:today()});
+  toast('Staff account created ✓','ok','stock');
+  closeM('mAddStaff');
+  renderStaffTab();
+  if(window.saveToFirestore) saveToFirestore();
+}
+
+function delStaff(id){
+  customConfirm('Remove this staff member? Their Firebase account will not be deleted.','👤','Remove', ok=>{
+    if(!ok) return;
+    db.staffList=(db.staffList||[]).filter(s=>s.id!==id);
+    toast('Staff removed','info','del');
+    renderStaffTab();
+    if(window.saveToFirestore) saveToFirestore();
+  });
+}
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
-const now=new Date();
-document.getElementById('chartMonth').value=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-
-// Load from Firestore — defined in the firebase script above
+// Show login page immediately — auth state watcher in Firebase block will redirect
 window.addEventListener('load', function() {
-  if(window.loadFromFirestore) {
-    loadFromFirestore();
-  } else {
-    document.getElementById('db-status').textContent='🟡 Local only';
-    renderDash();renderComps();renderShops();
-  }
+  // Initially hide app, show login
+  showLoginPage();
+  // chartMonth will be set in showAppPage() after auth
 });
 </script>
 </body>
