@@ -1341,20 +1341,80 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
-<!-- Product modal -->
+<!-- Product modal — Enhanced with date, price history, restock -->
 <div class="modal-ov" id="mProd">
-  <div class="modal">
+  <div class="modal wide">
     <div class="modal-title"><span id="mProdTitle">Add Product</span><button class="modal-x" onclick="closeM('mProd')">✕</button></div>
-    <div class="fg"><label>Product Name</label><input type="text" id="pName" placeholder="Product name"></div>
-    <div class="form-2col">
+
+    <!-- ADD mode: product name with autocomplete to detect existing -->
+    <div id="pAddSection">
+      <div class="fg ac-wrap">
+        <label>Product Name</label>
+        <input type="text" id="pName" placeholder="Type product name…" oninput="prodNameAC()" autocomplete="off">
+        <div class="ac-list" id="pNameSugg" style="display:none"></div>
+      </div>
+      <!-- Restocking banner (shown when existing product detected) -->
+      <div id="pRestockBanner" style="display:none;margin-bottom:14px;background:rgba(249,168,212,.08);border:1px solid rgba(249,168,212,.25);border-radius:14px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:1rem">📦</span>
+          <span style="font-size:.85rem;font-weight:700;color:var(--accent)">Existing Product Detected</span>
+        </div>
+        <div id="pRestockInfo" style="font-size:.82rem;color:var(--text3);margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="switchToRestock()">➕ Restock This Product</button>
+          <button class="btn btn-ghost btn-sm" onclick="addAsNew()">＋ Add as New</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit mode: show existing name (read-only) -->
+    <div id="pEditNameRow" style="display:none;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:12px 14px">
+        <div class="avatar" style="width:36px;height:36px;font-size:.82rem;margin:0" id="pEditAvatar"></div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.95rem" id="pEditNameDisplay"></div>
+          <div style="font-size:.72rem;color:var(--text3)" id="pEditCompDisplay"></div>
+        </div>
+        <span class="badge bg" id="pEditStockBadge"></span>
+      </div>
+    </div>
+
+    <!-- Price comparison banner (edit mode only) -->
+    <div id="pPriceCompareBanner" style="display:none;margin-bottom:14px"></div>
+
+    <!-- Mode toggle for edit: Update Price vs Add Restock -->
+    <div id="pEditModeToggle" style="display:none;margin-bottom:16px">
+      <div style="display:flex;gap:4px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:3px">
+        <button class="hf-btn on" id="peMode-restock" onclick="setProdEditMode('restock')">➕ Add New Stock</button>
+        <button class="hf-btn" id="peMode-updateprice" onclick="setProdEditMode('updateprice')">💹 Update Price Only</button>
+      </div>
+    </div>
+
+    <!-- Fields -->
+    <div class="form-2col" id="pPriceFields">
       <div class="fg"><label>Buy Price (₹)</label><input type="number" id="pBuy" placeholder="0.00" oninput="calcMargin()"></div>
       <div class="fg"><label>Sell Price (₹)</label><input type="number" id="pSell" placeholder="0.00" oninput="calcMargin()"></div>
       <div class="fg"><label>Margin (%)</label><input type="text" id="pMargin" readonly style="opacity:.6;cursor:default"></div>
-      <div class="fg"><label>Stock Qty</label><input type="number" id="pQty" placeholder="0"></div>
+      <div class="fg" id="pQtyField"><label id="pQtyLabel">Stock Qty</label><input type="number" id="pQty" placeholder="0" min="0"></div>
     </div>
+    <div class="fg" id="pDateField">
+      <label>Purchase Date</label>
+      <input type="date" id="pDate">
+    </div>
+    <div class="fg" id="pNoteField">
+      <label>Note (optional)</label>
+      <input type="text" id="pNote" placeholder="e.g. New batch, supplier change…">
+    </div>
+
+    <!-- Price history timeline (edit mode) -->
+    <div id="pPriceHistory" style="display:none;margin-bottom:4px">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📈 Price History</div>
+      <div id="pPriceHistoryList"></div>
+    </div>
+
     <div class="form-acts">
       <button class="btn btn-ghost" onclick="closeM('mProd')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveProd()">Save</button>
+      <button class="btn btn-primary" id="pSaveBtn" onclick="saveProd()">Save</button>
     </div>
   </div>
 </div>
@@ -2374,90 +2434,362 @@ function delComp(id){
 }
 
 // ══════════════════════════════════════════
-// STOCK — PRODUCTS
+// STOCK — PRODUCTS (Enhanced)
 // ══════════════════════════════════════════
 function renderProds(){
   const q=(document.getElementById('prodSearch').value||'').toLowerCase();
   let ps=db.products.filter(p=>p.cId===currCompId);
   if(q) ps=ps.filter(p=>p.name.toLowerCase().includes(q));
   const tb=document.getElementById('prodTbody');
-  if(!ps.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-ico">📦</div><div style="font-size:.8rem">No products</div></div></td></tr>';return;}
+  if(!ps.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><div class="empty-ico">📦</div><div style="font-size:.8rem">No products</div></div></td></tr>';return;}
   const mc=p=>p.margin>=30?'bg-green':p.margin>=15?'bg-warn':'bg-red';
-  tb.innerHTML=ps.map(p=>`
+  // Update table header to include Date col
+  const thead = document.querySelector('#prodTbody').closest('table').querySelector('thead tr');
+  if(thead && thead.children.length < 8){
+    thead.innerHTML='<th>Product</th><th>Buy Price</th><th>Sell Price</th><th>Margin</th><th>Stock</th><th>Last Purchase</th><th>Sold</th><th>Actions</th>';
+  }
+  tb.innerHTML=ps.map(p=>{
+    const ph = p.priceHistory||[];
+    const lastEntry = ph.length ? ph[ph.length-1] : null;
+    const lastDate  = lastEntry ? lastEntry.date : (p.createdAt||'—');
+    // Price trend: compare last two entries
+    let trendHtml = '';
+    if(ph.length>=2){
+      const prev = ph[ph.length-2], curr = ph[ph.length-1];
+      if(curr.sell > prev.sell) trendHtml = '<span style="color:var(--red);font-size:.75rem">▲</span>';
+      else if(curr.sell < prev.sell) trendHtml = '<span style="color:var(--green);font-size:.75rem">▼</span>';
+      else trendHtml = '<span style="color:var(--text3);font-size:.75rem">—</span>';
+    }
+    // Batch count tooltip
+    const batches = p.batches||[];
+    return `
     <tr>
-      <td><strong>${p.name}</strong></td>
+      <td>
+        <strong>${p.name}</strong>
+        ${batches.length>1?`<span style="font-size:.68rem;background:rgba(249,168,212,.12);color:var(--accent);border-radius:6px;padding:1px 6px;margin-left:4px">${batches.length} batches</span>`:''}
+      </td>
       <td>${fmt(p.buy)}</td>
-      <td style="color:var(--green);font-weight:700">${fmt(p.sell)}</td>
+      <td style="color:var(--green);font-weight:700">${fmt(p.sell)} ${trendHtml}</td>
       <td><span class="badge ${mc(p)}">${p.margin.toFixed(1)}%</span></td>
       <td><span class="badge ${p.qty<=5?'bg-red':'bg'}">${p.qty}</span></td>
+      <td style="font-size:.78rem;color:var(--text3)">${lastDate!=='—'?fmtD(lastDate):'—'}</td>
       <td style="color:var(--text3)">${p.sold}</td>
       <td>
         <div style="display:flex;gap:5px">
           <button class="btn-xs btn-view" onclick="viewProd('${p.id}')" title="View">👁️</button>
-          ${isOwner()?`<button class="btn-xs btn-edit" onclick="openProdModal('${p.id}')" title="Edit">✏️</button>
+          ${isOwner()?`<button class="btn-xs btn-edit" onclick="openProdModal('${p.id}')" title="Edit / Restock">✏️</button>
           <button class="btn-xs btn-del" onclick="delProd('${p.id}')" title="Delete">🗑️</button>`:''}
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 function filterProds(){renderProds();}
+
 function calcMargin(){
   const b=parseFloat(document.getElementById('pBuy').value)||0;
   const s=parseFloat(document.getElementById('pSell').value)||0;
   document.getElementById('pMargin').value=b>0?((s-b)/b*100).toFixed(1)+'%':'0.0%';
 }
-function openProdModal(id=null){
+
+// ── Product name autocomplete (Add mode) ──
+function prodNameAC(){
+  const q = document.getElementById('pName').value.toLowerCase().trim();
+  const su = document.getElementById('pNameSugg');
+  const banner = document.getElementById('pRestockBanner');
+  if(!q){ su.style.display='none'; banner.style.display='none'; return; }
+  const matches = db.products.filter(p=>p.name.toLowerCase().includes(q));
+  // Exact match → show restock banner immediately
+  const exact = db.products.find(p=>p.name.toLowerCase()===q);
+  if(exact){
+    su.style.display='none';
+    showRestockBanner(exact);
+  } else {
+    banner.style.display='none';
+    if(!matches.length){ su.style.display='none'; return; }
+    su.style.display='';
+    su.innerHTML = matches.map(p=>`
+      <div class="ac-item" onclick="selectExistingProd('${p.id}')">
+        <div><span>${p.name}</span><span class="ac-sub"> · Stock: ${p.qty}</span></div>
+        <span class="ac-price">${fmt(p.sell)}</span>
+      </div>`).join('');
+  }
+}
+function selectExistingProd(id){
+  const p = db.products.find(x=>x.id===id);
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pNameSugg').style.display='none';
+  showRestockBanner(p);
+}
+function showRestockBanner(p){
+  const banner = document.getElementById('pRestockBanner');
+  const ph = p.priceHistory||[];
+  banner.style.display='';
+  banner.dataset.prodId = p.id;
+  document.getElementById('pRestockInfo').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="background:rgba(0,0,0,.15);border-radius:8px;padding:8px">
+        <div style="font-size:.65rem;color:var(--text3);margin-bottom:2px">Current Buy</div>
+        <div style="font-weight:700;color:var(--accent)">${fmt(p.buy)}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.15);border-radius:8px;padding:8px">
+        <div style="font-size:.65rem;color:var(--text3);margin-bottom:2px">Current Sell</div>
+        <div style="font-weight:700;color:var(--green)">${fmt(p.sell)}</div>
+      </div>
+      <div style="background:rgba(0,0,0,.15);border-radius:8px;padding:8px">
+        <div style="font-size:.65rem;color:var(--text3);margin-bottom:2px">In Stock</div>
+        <div style="font-weight:700">${p.qty} units</div>
+      </div>
+    </div>
+    ${ph.length?`<div style="margin-top:7px;font-size:.72rem;color:var(--text3)">${ph.length} price entries recorded</div>`:''}`;
+}
+let _addAsNew = false;
+function switchToRestock(){
+  const banner = document.getElementById('pRestockBanner');
+  const pid = banner.dataset.prodId;
+  _addAsNew = false;
+  closeM('mProd');
+  // Open edit modal in restock mode
+  openProdModal(pid, 'restock');
+}
+function addAsNew(){
+  _addAsNew = true;
+  document.getElementById('pRestockBanner').style.display='none';
+  document.getElementById('pNameSugg').style.display='none';
+  // focus on buy price
+  document.getElementById('pBuy').focus();
+}
+
+// ── prod edit mode toggle ──
+let _prodEditMode = 'restock'; // 'restock' | 'updateprice'
+function setProdEditMode(mode){
+  _prodEditMode = mode;
+  document.getElementById('peMode-restock').classList[mode==='restock'?'add':'remove']('on');
+  document.getElementById('peMode-updateprice').classList[mode==='updateprice'?'add':'remove']('on');
+  const qtyField = document.getElementById('pQtyField');
+  const qtyLabel = document.getElementById('pQtyLabel');
+  if(mode==='updateprice'){
+    qtyField.style.display='none';
+    document.getElementById('pSaveBtn').textContent='💹 Update Price';
+  } else {
+    qtyField.style.display='';
+    qtyLabel.textContent='New Stock Qty (adding)';
+    document.getElementById('pSaveBtn').textContent='➕ Add Stock';
+  }
+}
+
+// ── open product modal ──
+function openProdModal(id=null, defaultMode='restock'){
   editProdId=id;
-  document.getElementById('mProdTitle').textContent=id?'Edit Product':'Add Product';
-  if(id){const p=db.products.find(x=>x.id===id);document.getElementById('pName').value=p.name;document.getElementById('pBuy').value=p.buy;document.getElementById('pSell').value=p.sell;document.getElementById('pMargin').value=p.margin.toFixed(1)+'%';document.getElementById('pQty').value=p.qty;}
-  else ['pName','pBuy','pSell','pMargin','pQty'].forEach(x=>document.getElementById(x).value='');
+  _addAsNew=false;
+  _prodEditMode=defaultMode;
+  // Reset
+  ['pBuy','pSell','pMargin','pQty','pNote'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('pDate').value=today();
+  document.getElementById('pRestockBanner').style.display='none';
+  document.getElementById('pNameSugg').style.display='none';
+  document.getElementById('pPriceCompareBanner').style.display='none';
+  document.getElementById('pPriceHistory').style.display='none';
+  document.getElementById('pEditModeToggle').style.display='none';
+
+  if(id){
+    // ── EDIT / RESTOCK mode ──
+    const p=db.products.find(x=>x.id===id);
+    const c=db.companies.find(x=>x.id===p.cId);
+    document.getElementById('mProdTitle').textContent='Edit Product';
+    document.getElementById('pAddSection').style.display='none';
+    document.getElementById('pEditNameRow').style.display='';
+    document.getElementById('pEditAvatar').textContent=p.name.substr(0,2).toUpperCase();
+    document.getElementById('pEditNameDisplay').textContent=p.name;
+    document.getElementById('pEditCompDisplay').textContent=c?c.name:'';
+    document.getElementById('pEditStockBadge').textContent=p.qty+' in stock';
+    // Mode toggle
+    document.getElementById('pEditModeToggle').style.display='';
+    setProdEditMode(defaultMode);
+    // Fill current prices
+    document.getElementById('pBuy').value=p.buy;
+    document.getElementById('pSell').value=p.sell;
+    calcMargin();
+    document.getElementById('pQty').value='';
+    document.getElementById('pQtyLabel').textContent='New Stock Qty (adding)';
+    // Price comparison banner
+    const ph=p.priceHistory||[];
+    if(ph.length){
+      const last=ph[ph.length-1];
+      document.getElementById('pPriceCompareBanner').style.display='';
+      document.getElementById('pPriceCompareBanner').innerHTML=`
+        <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+          <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📊 Last Purchase vs Current</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:10px">
+              <div style="font-size:.65rem;color:var(--text3);margin-bottom:5px">🕒 LAST (${fmtD(last.date)})</div>
+              <div style="font-size:.82rem;margin-bottom:3px">Buy: <strong style="color:var(--accent)">${fmt(last.buy)}</strong></div>
+              <div style="font-size:.82rem">Sell: <strong style="color:var(--green)">${fmt(last.sell)}</strong></div>
+              <div style="font-size:.7rem;color:var(--text3);margin-top:3px">+${last.qty||0} units added</div>
+            </div>
+            <div style="background:rgba(249,168,212,.07);border:1px solid rgba(249,168,212,.15);border-radius:10px;padding:10px">
+              <div style="font-size:.65rem;color:var(--text3);margin-bottom:5px">📝 CURRENT (${fmtD(today())})</div>
+              <div style="font-size:.82rem;margin-bottom:3px">Buy: <strong style="color:var(--accent)">${fmt(p.buy)}</strong></div>
+              <div style="font-size:.82rem">Sell: <strong style="color:var(--green)">${fmt(p.sell)}</strong></div>
+              <div style="font-size:.7rem;color:var(--text3);margin-top:3px">${p.qty} units in stock</div>
+            </div>
+          </div>
+        </div>`;
+    }
+    // Price history timeline
+    if(ph.length){
+      document.getElementById('pPriceHistory').style.display='';
+      document.getElementById('pPriceHistoryList').innerHTML=ph.slice().reverse().map((h,i)=>{
+        const isCurrent=i===0;
+        return `<div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start">
+          <div style="width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0;background:${isCurrent?'var(--green)':'var(--glass-border-h)'}"></div>
+          <div style="flex:1;background:${isCurrent?'rgba(134,239,172,.07)':'var(--glass-bg)'};border:1px solid ${isCurrent?'rgba(134,239,172,.2)':'var(--glass-border)'};border-radius:10px;padding:9px 12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+              <span style="font-size:.78rem;font-weight:700">${fmtD(h.date)}</span>
+              ${isCurrent?'<span style="font-size:.68rem;background:rgba(134,239,172,.15);color:var(--green);border-radius:6px;padding:1px 7px">Current</span>':''}
+            </div>
+            <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
+              <span style="font-size:.8rem">Buy: <strong style="color:var(--accent)">${fmt(h.buy)}</strong></span>
+              <span style="font-size:.8rem">Sell: <strong style="color:var(--green)">${fmt(h.sell)}</strong></span>
+              ${h.qty?`<span style="font-size:.8rem;color:var(--text3)">+${h.qty} units</span>`:''}
+              ${h.note?`<span style="font-size:.75rem;color:var(--text3);font-style:italic">${h.note}</span>`:''}
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('pSaveBtn').textContent='➕ Add Stock';
+  } else {
+    // ── ADD mode ──
+    document.getElementById('mProdTitle').textContent='Add Product';
+    document.getElementById('pAddSection').style.display='';
+    document.getElementById('pEditNameRow').style.display='none';
+    document.getElementById('pName').value='';
+    document.getElementById('pQtyLabel').textContent='Stock Qty';
+    document.getElementById('pSaveBtn').textContent='Save Product';
+  }
   openM('mProd');
 }
+
 function saveProd(){
-  const name=document.getElementById('pName').value.trim();
   const buy=parseFloat(document.getElementById('pBuy').value)||0;
   const sell=parseFloat(document.getElementById('pSell').value)||0;
   const qty=parseInt(document.getElementById('pQty').value)||0;
-  if(!name||!buy||!sell){toast('Fill all fields','err');return;}
+  const date=document.getElementById('pDate').value||today();
+  const note=document.getElementById('pNote').value.trim();
+  if(!buy||!sell){toast('Enter buy and sell price','err');return;}
   const margin=buy>0?parseFloat(((sell-buy)/buy*100).toFixed(2)):0;
+
   if(editProdId){
     const p=db.products.find(x=>x.id===editProdId);
-    Object.assign(p,{name,buy,sell,margin,qty});
-    toast('Product updated ✏️','ok','stock');
+    if(!p.priceHistory) p.priceHistory=[];
+    if(!p.batches) p.batches=[];
+    if(_prodEditMode==='updateprice'){
+      // Just update price — no stock change
+      p.buy=buy; p.sell=sell; p.margin=margin;
+      p.priceHistory.push({date,buy,sell,qty:0,note:note||'Price update'});
+      toast('Price updated 💹','ok','stock');
+    } else {
+      // Restock: add qty, update price
+      if(!qty||qty<=0){toast('Enter quantity to add','err');return;}
+      p.buy=buy; p.sell=sell; p.margin=margin;
+      p.qty+=qty;
+      p.priceHistory.push({date,buy,sell,qty,note});
+      p.batches.push({id:uid(),date,buy,sell,qty,note});
+      toast(`+${qty} units added ✓ · New stock: ${p.qty}`,'ok','stock');
+    }
   } else {
-    db.products.push({id:uid(),cId:currCompId,name,buy,sell,margin,qty,sold:0});
+    // New product
+    const name=document.getElementById('pName').value.trim();
+    if(!name){toast('Enter product name','err');return;}
+    if(!qty&&qty!==0){toast('Enter stock qty','err');return;}
+    const newProd={
+      id:uid(),cId:currCompId,name,buy,sell,margin,qty,sold:0,
+      createdAt:date,
+      priceHistory:[{date,buy,sell,qty,note}],
+      batches:[{id:uid(),date,buy,sell,qty,note}]
+    };
+    db.products.push(newProd);
     toast('Product added 📦','ok','stock');
   }
-  closeM('mProd');renderProds();
+  closeM('mProd');
+  renderProds();
   if(window.saveToFirestore) saveToFirestore();
 }
+
 function viewProd(id){
   const p=db.products.find(x=>x.id===id);
   const c=db.companies.find(x=>x.id===p.cId);
+  const ph=p.priceHistory||[];
+  const profitPerUnit=p.sell-p.buy;
+  const totalProfit=profitPerUnit*p.sold;
+  // Sparkline: last 5 sell prices
+  const sparkPrices=ph.slice(-5).map(h=>h.sell);
+  const sparkMax=Math.max(...sparkPrices,1);
+  const sparkMin=Math.min(...sparkPrices);
+  const sparkW=60,sparkH=24;
+  let sparkSvg='';
+  if(sparkPrices.length>1){
+    const pts=sparkPrices.map((v,i)=>`${(i/(sparkPrices.length-1))*sparkW},${sparkH-((v-sparkMin)/(sparkMax-sparkMin||1))*sparkH}`).join(' ');
+    sparkSvg=`<svg width="${sparkW}" height="${sparkH}" style="overflow:visible"><polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
   document.getElementById('mViewProdContent').innerHTML=`
     <div style="display:grid;gap:12px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="avatar">${p.name.substr(0,2).toUpperCase()}</div>
-        <div><div style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700">${p.name}</div><span class="badge bg">${c?c.name:'—'}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar">${p.name.substr(0,2).toUpperCase()}</div>
+          <div>
+            <div style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700">${p.name}</div>
+            <span class="badge bg">${c?c.name:'—'}</span>
+          </div>
+        </div>
+        ${sparkSvg?`<div style="text-align:right"><div style="font-size:.65rem;color:var(--text3);margin-bottom:3px">Sell price trend</div>${sparkSvg}</div>`:''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div class="stat-card sc-cyan" style="padding:14px"><div class="stat-label">Buy Price</div><div class="stat-value" style="font-size:1rem">${fmt(p.buy)}</div></div>
         <div class="stat-card sc-green" style="padding:14px"><div class="stat-label">Sell Price</div><div class="stat-value" style="font-size:1rem">${fmt(p.sell)}</div></div>
         <div class="stat-card sc-warn" style="padding:14px"><div class="stat-label">Margin</div><div class="stat-value" style="font-size:1rem">${p.margin.toFixed(1)}%</div></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div class="stat-card sc-blue" style="padding:14px"><div class="stat-label">In Stock</div><div class="stat-value">${p.qty}</div></div>
         <div class="stat-card sc-purple" style="padding:14px"><div class="stat-label">Total Sold</div><div class="stat-value">${p.sold}</div></div>
+        <div class="stat-card sc-green" style="padding:14px"><div class="stat-label">Total Profit</div><div class="stat-value" style="font-size:.95rem">${fmt(totalProfit)}</div></div>
       </div>
-      <div style="background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.2);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center">
-        <div style="font-size:.78rem;color:var(--text3)">Profit per unit</div>
-        <div style="font-family:'Clash Display',sans-serif;font-weight:700;color:var(--green)">${fmt(p.sell-p.buy)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:rgba(0,232,122,.08);border:1px solid rgba(0,232,122,.2);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:.78rem;color:var(--text3)">Profit per unit</div>
+          <div style="font-family:'Clash Display',sans-serif;font-weight:700;color:var(--green)">${fmt(profitPerUnit)}</div>
+        </div>
+        <div style="background:rgba(249,168,212,.07);border:1px solid rgba(249,168,212,.18);border-radius:12px;padding:14px;display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:.78rem;color:var(--text3)">First added</div>
+          <div style="font-size:.82rem;font-weight:600">${p.createdAt?fmtD(p.createdAt):'—'}</div>
+        </div>
       </div>
+      ${ph.length?`
+      <div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📈 Full Price History (${ph.length} entries)</div>
+        ${ph.slice().reverse().map((h,i)=>`
+          <div style="display:flex;gap:9px;margin-bottom:7px;align-items:flex-start">
+            <div style="width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0;background:${i===0?'var(--green)':'rgba(249,168,212,.4)'}"></div>
+            <div style="flex:1;background:${i===0?'rgba(134,239,172,.07)':'var(--glass-bg)'};border:1px solid ${i===0?'rgba(134,239,172,.2)':'var(--glass-border)'};border-radius:10px;padding:9px 12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px">
+                <strong style="font-size:.8rem">📅 ${fmtD(h.date)}</strong>
+                ${i===0?'<span style="font-size:.68rem;background:rgba(134,239,172,.15);color:var(--green);border-radius:6px;padding:1px 7px">Latest</span>':''}
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <span style="font-size:.8rem">Buy: <strong style="color:var(--accent)">${fmt(h.buy)}</strong></span>
+                <span style="font-size:.8rem">Sell: <strong style="color:var(--green)">${fmt(h.sell)}</strong></span>
+                ${h.qty?`<span style="font-size:.78rem;color:var(--text3)">+${h.qty} units</span>`:''}
+                ${h.note?`<span style="font-size:.75rem;color:var(--text3);font-style:italic">"${h.note}"</span>`:''}
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`:''}
     </div>
   `;
   openM('mViewProd');
 }
+
 function delProd(id){
   customConfirm('Delete this product permanently?','📦','Delete Product', ok=>{
     if(!ok) return;
@@ -2579,18 +2911,23 @@ function addSellRow(){
   renderSellRows();
 }
 function renderSellRows(){
-  document.getElementById('sellRows').innerHTML=sellRows.map(r=>`
+  document.getElementById('sellRows').innerHTML=sellRows.map(r=>{
+    // Find product to show current sell price hint
+    const prod = db.products.find(x=>x.id===r.productId);
+    const priceHint = prod ? `<div style="font-size:.68rem;color:var(--text3);margin-top:2px">Current sell: <span style="color:var(--green);font-weight:700">${fmt(prod.sell)}</span>${r.sellPrice!==prod.sell?` · <span style="color:var(--warn)">Modified</span>`:''}</div>` : '';
+    return `
     <div class="sell-item" id="sr-${r.id}">
       <div class="ac-wrap" style="position:relative">
         <input class="row-inp" type="text" placeholder="Product name…" value="${r.name}"
           oninput="prodAC(this,'${r.id}')" autocomplete="off" id="pi-${r.id}">
         <div class="ac-list" id="psu-${r.id}" style="display:none"></div>
+        ${priceHint}
       </div>
-      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updRowPrice('${r.id}',this.value)">
+      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updRowPrice('${r.id}',this.value)" id="rsp-${r.id}">
       <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" oninput="updRowQty('${r.id}',this.value)">
       <button class="btn-xs btn-del" onclick="rmRow('${r.id}')">✕</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   updSellSum();
 }
 function prodAC(inp,rowId){
@@ -2610,10 +2947,15 @@ function prodAC(inp,rowId){
 function selProdRow(rowId,prodId){
   const p=db.products.find(x=>x.id===prodId);
   const r=sellRows.find(x=>x.id===rowId);
+  // Always use the LATEST sell price from product
   if(r){r.productId=p.id;r.name=p.name;r.sellPrice=p.sell;r.qty=1;}
   document.getElementById('psu-'+rowId).style.display='none';
   renderSellRows();
-  setTimeout(()=>{const el=document.getElementById('pi-'+rowId);if(el)el.value=p.name;},10);
+  setTimeout(()=>{
+    const el=document.getElementById('pi-'+rowId);if(el)el.value=p.name;
+    // Auto-fill sell price field with latest price
+    const sp=document.getElementById('rsp-'+rowId);if(sp)sp.value=p.sell;
+  },10);
 }
 function updRowPrice(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.sellPrice=parseFloat(v)||0;updSellSum();}
 function updRowQty(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.qty=parseInt(v)||1;updSellSum();}
