@@ -799,7 +799,33 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   #compPayStats > div:nth-child(3){grid-template-columns:1fr!important}
 
   /* ─ Modals ─ */
-  .modal{padding:18px 14px;border-radius:18px;max-height:88vh;overflow-y:auto}
+  /* On mobile: overlay scrolls, modal fills width, sticks to top */
+  .modal-ov{
+    align-items:flex-start !important;
+    overflow-y:auto !important;
+    padding:12px 10px 80px 10px !important; /* bottom pad clears mobile nav */
+    -webkit-overflow-scrolling:touch;
+  }
+  .modal{
+    padding:18px 14px !important;
+    border-radius:18px !important;
+    max-height:none !important;        /* let content grow naturally */
+    overflow-y:visible !important;     /* modal itself doesn't scroll — overlay does */
+    width:100% !important;
+    margin:auto;
+  }
+  /* Sticky action buttons so they're always visible */
+  .form-acts{
+    position:sticky;
+    bottom:0;
+    background:var(--glass-bg);
+    backdrop-filter:blur(16px);
+    -webkit-backdrop-filter:blur(16px);
+    padding:12px 0 4px;
+    margin-top:14px;
+    border-top:1px solid var(--glass-border);
+    z-index:10;
+  }
   .form-2col{grid-template-columns:1fr}
 
   /* ─ Charts ─ */
@@ -1716,9 +1742,21 @@ function toast(msg, type='ok', sound=null) {
   const snd = sound || (type==='err' ? 'err' : type==='ok' ? 'ok' : 'ok');
   playSound(snd);
 }
-function openM(id){document.getElementById(id).classList.add('open')}
-function closeM(id){document.getElementById(id).classList.remove('open')}
-document.querySelectorAll('.modal-ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o && o.id!=='mConfirm')o.classList.remove('open')}));
+function openM(id){
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeM(id){
+  document.getElementById(id).classList.remove('open');
+  // Only restore scroll if no other modals are open
+  if(!document.querySelector('.modal-ov.open')) document.body.style.overflow='';
+}
+document.querySelectorAll('.modal-ov').forEach(o=>o.addEventListener('click',e=>{
+  if(e.target===o && o.id!=='mConfirm'){
+    o.classList.remove('open');
+    if(!document.querySelector('.modal-ov.open')) document.body.style.overflow='';
+  }
+}));
 document.addEventListener('click',e=>{
   if(!e.target.closest('.ac-wrap'))
     document.querySelectorAll('.ac-list').forEach(el=>el.style.display='none');
