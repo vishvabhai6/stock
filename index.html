@@ -799,7 +799,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   #compPayStats > div:nth-child(3){grid-template-columns:1fr!important}
 
   /* ─ Modals ─ */
-  .modal{padding:18px 14px;border-radius:18px;max-height:88vh}
+  .modal{padding:18px 14px;border-radius:18px;max-height:88vh;overflow-y:auto}
   .form-2col{grid-template-columns:1fr}
 
   /* ─ Charts ─ */
@@ -815,7 +815,47 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   .glass{padding:14px}
 }
 
-/* ─── LOGIN PAGE ─── */
+/* ─── HISTORY FILTER BAR ─── */
+.hist-filter-bar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  background:var(--glass-bg);border:1px solid var(--glass-border);
+  border-radius:14px;padding:10px 14px;margin-bottom:14px;
+  backdrop-filter:blur(12px);
+}
+.hf-label{font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.hf-btn{
+  padding:5px 13px;border-radius:9px;border:1px solid var(--glass-border);
+  background:var(--glass-bg);color:var(--text2);
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:.78rem;font-weight:600;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.hf-btn.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(236,72,153,.3)}
+.hf-btn:hover:not(.on){background:var(--glass-bg-h);border-color:var(--glass-border-h)}
+.hf-inp{
+  padding:5px 11px;border-radius:9px;
+  border:1px solid var(--glass-border);
+  background:var(--input-bg);color:var(--text);
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:.78rem;
+  outline:none;transition:border-color .2s;
+}
+.hf-inp:focus{border-color:var(--accent)}
+/* ─── DELIVERY HISTORY ─── */
+.deliv-row{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(134,239,172,.06);border:1px solid rgba(134,239,172,.15);
+  border-radius:12px;padding:10px 14px;margin-bottom:8px;
+  transition:border-color .2s;
+}
+.deliv-row:hover{border-color:rgba(134,239,172,.35)}
+.deliv-ico{width:34px;height:34px;border-radius:9px;background:rgba(134,239,172,.12);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.deliv-info{flex:1;min-width:0}
+.deliv-shop{font-size:.87rem;font-weight:700;margin-bottom:2px}
+.deliv-meta{font-size:.73rem;color:var(--text3)}
+.deliv-qty{text-align:right;font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--green)}
+/* ─── QUICK STATS STRIP ─── */
+.qs-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:680px){.qs-strip{grid-template-columns:1fr 1fr}}
+
 #loginPage{
   position:fixed;inset:0;z-index:9999;
   display:flex;align-items:center;justify-content:center;
@@ -1054,6 +1094,15 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
 <!-- ══════════ SELL ══════════ -->
 <div class="page" id="page-sell">
+  <!-- Sub-nav tabs -->
+  <div style="display:flex;gap:4px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px);width:fit-content;flex-wrap:wrap">
+    <button class="hf-btn on" id="stab-shops" onclick="switchSellTab('shops')">🏪 Shops</button>
+    <button class="hf-btn" id="stab-txnhist" onclick="switchSellTab('txnhist')">📊 Sell History</button>
+    <button class="hf-btn" id="stab-delivhist" onclick="switchSellTab('delivhist')">📦 Delivery History</button>
+    <button class="hf-btn" id="stab-collections" onclick="switchSellTab('collections')">💳 Collections</button>
+  </div>
+
+  <!-- ── Shops List ── -->
   <div id="sellv-list">
     <div class="sec-hdr">
       <div class="sec-title">Shops / Customers</div>
@@ -1078,6 +1127,8 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       </table>
     </div>
   </div>
+
+  <!-- ── Shop Detail ── -->
   <div id="sellv-detail" style="display:none">
     <div class="back-btn" onclick="backToShops()">← Back to Shops</div>
     <div class="sec-hdr">
@@ -1094,10 +1145,117 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="sec-title" style="margin-bottom:12px">Transaction History</div>
     <div id="shopHistory"></div>
   </div>
+
+  <!-- ── Sell Transaction History Tab ── -->
+  <div id="sellv-txnhist" style="display:none">
+    <div class="sec-title" style="margin-bottom:14px">📊 Sell Transactions History
+      <button class="btn btn-ghost btn-sm" style="margin-left:10px;font-size:.76rem" onclick="exportTxnCSV()">⬇️ Export CSV</button>
+    </div>
+    <!-- Filter bar -->
+    <div class="hist-filter-bar">
+      <span class="hf-label">Filter:</span>
+      <button class="hf-btn on" id="thf-all" onclick="setTxnFilter('all',this)">All</button>
+      <button class="hf-btn" id="thf-date" onclick="setTxnFilter('date',this)">By Date</button>
+      <button class="hf-btn" id="thf-month" onclick="setTxnFilter('month',this)">By Month</button>
+      <button class="hf-btn" id="thf-year" onclick="setTxnFilter('year',this)">By Year</button>
+      <input type="date" class="hf-inp" id="thf-date-inp" style="display:none" oninput="renderTxnHistory()">
+      <input type="month" class="hf-inp" id="thf-month-inp" style="display:none" oninput="renderTxnHistory()">
+      <select class="hf-inp" id="thf-year-inp" style="display:none" onchange="renderTxnHistory()"></select>
+      <div style="margin-left:auto">
+        <div class="search-wrap" style="min-width:160px">
+          <span style="color:var(--text3)">🔍</span>
+          <input type="text" placeholder="Shop name…" id="thf-search" oninput="renderTxnHistory()">
+        </div>
+      </div>
+    </div>
+    <!-- Summary strip -->
+    <div class="qs-strip" id="txnh-summary"></div>
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Shop</th><th>Items</th><th>Bill Amount</th><th>Paid</th><th>Balance</th><th>Method</th>
+        </tr></thead>
+        <tbody id="txnh-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Delivery / Stock Out History Tab ── -->
+  <div id="sellv-delivhist" style="display:none">
+    <div class="sec-title" style="margin-bottom:14px">📦 Delivering Stock History
+      <button class="btn btn-ghost btn-sm" style="margin-left:10px;font-size:.76rem" onclick="exportDelivCSV()">⬇️ Export CSV</button>
+    </div>
+    <!-- Filter bar -->
+    <div class="hist-filter-bar">
+      <span class="hf-label">Filter:</span>
+      <button class="hf-btn on" id="dhf-all" onclick="setDelivFilter('all',this)">All</button>
+      <button class="hf-btn" id="dhf-date" onclick="setDelivFilter('date',this)">By Date</button>
+      <button class="hf-btn" id="dhf-month" onclick="setDelivFilter('month',this)">By Month</button>
+      <button class="hf-btn" id="dhf-year" onclick="setDelivFilter('year',this)">By Year</button>
+      <input type="date" class="hf-inp" id="dhf-date-inp" style="display:none" oninput="renderDelivHistory()">
+      <input type="month" class="hf-inp" id="dhf-month-inp" style="display:none" oninput="renderDelivHistory()">
+      <select class="hf-inp" id="dhf-year-inp" style="display:none" onchange="renderDelivHistory()"></select>
+      <div style="margin-left:auto">
+        <div class="search-wrap" style="min-width:160px">
+          <span style="color:var(--text3)">🔍</span>
+          <input type="text" placeholder="Product / Shop…" id="dhf-search" oninput="renderDelivHistory()">
+        </div>
+      </div>
+    </div>
+    <!-- Summary strip -->
+    <div class="qs-strip" id="delivh-summary"></div>
+    <!-- List -->
+    <div id="delivh-list"></div>
+  </div>
+
+  <!-- ── Collections (Payments Received) Tab ── -->
+  <div id="sellv-collections" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="sec-title">💳 Collected Money from Customers</div>
+      <button class="btn btn-ghost btn-sm" onclick="exportCollectionsCSV()">⬇️ Export CSV</button>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="hist-filter-bar">
+      <span class="hf-label">Filter:</span>
+      <button class="hf-btn on" id="chf-all"   onclick="setCollFilter('all',this)">All</button>
+      <button class="hf-btn"    id="chf-date"  onclick="setCollFilter('date',this)">By Date</button>
+      <button class="hf-btn"    id="chf-month" onclick="setCollFilter('month',this)">By Month</button>
+      <button class="hf-btn"    id="chf-year"  onclick="setCollFilter('year',this)">By Year</button>
+      <input type="date"  class="hf-inp" id="chf-date-inp"  style="display:none" oninput="renderCollections()">
+      <input type="month" class="hf-inp" id="chf-month-inp" style="display:none" oninput="renderCollections()">
+      <select             class="hf-inp" id="chf-year-inp"  style="display:none" onchange="renderCollections()"></select>
+      <div style="margin-left:auto">
+        <div class="search-wrap" style="min-width:160px">
+          <span style="color:var(--text3)">🔍</span>
+          <input type="text" placeholder="Shop / Method…" id="chf-search" oninput="renderCollections()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="qs-strip" id="coll-summary"></div>
+
+    <!-- Method breakdown bar -->
+    <div id="coll-methods" style="margin-bottom:14px"></div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Payment Date</th>
+          <th>Customer / Shop</th>
+          <th>Bill Date</th>
+          <th>Amount Collected</th>
+          <th>Payment Method</th>
+          <th>Running Balance After</th>
+        </tr></thead>
+        <tbody id="coll-tbody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
-
-
-<!-- ══════════ STAFF ══════════ -->
 <div class="page" id="page-staff">
   <div id="staffOwnerView">
     <div class="sec-hdr">
@@ -1625,11 +1783,79 @@ function showPage(name){
 // ══════════════════════════════════════════
 function renderDash(){
   renderDashStats();
+  renderDashAlerts();
   renderCompPayStats();
   renderChart();
   renderTopProds();
   renderRecentTxns();
   populateChartComp();
+}
+
+function renderDashAlerts(){
+  // Due payment reminders
+  const overdue = db.shops.filter(sh=>{
+    const l=sh.sessions[sh.sessions.length-1];
+    return l && l.balance>0;
+  }).sort((a,b)=>{
+    const la=a.sessions[a.sessions.length-1];
+    const lb=b.sessions[b.sessions.length-1];
+    return lb.balance - la.balance;
+  });
+  // Low stock
+  const LOW_THRESH = 5;
+  const lowStock = db.products.filter(p=>p.qty<=LOW_THRESH&&p.qty>=0).sort((a,b)=>a.qty-b.qty);
+  let alertsHtml = '';
+  if(overdue.length){
+    alertsHtml += `
+    <div style="background:rgba(251,113,133,.07);border:1px solid rgba(251,113,133,.22);border-radius:16px;padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="font-size:1.1rem">🔔</span>
+        <span style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:.95rem">Payment Due Reminders</span>
+        <span style="background:rgba(251,113,133,.18);color:var(--red);border-radius:20px;padding:2px 9px;font-size:.72rem;font-weight:700">${overdue.length}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${overdue.slice(0,5).map(sh=>{
+          const l=sh.sessions[sh.sessions.length-1];
+          return `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,0,0,.15);border-radius:10px;padding:9px 13px;gap:10px">
+            <span style="font-weight:600;font-size:.85rem;cursor:pointer;color:var(--accent)" onclick="showPage('sell');setTimeout(()=>openShopDetail('${sh.id}'),80)">${sh.name}</span>
+            <span style="font-family:'Clash Display',sans-serif;color:var(--red);font-weight:700;font-size:.9rem;white-space:nowrap">${fmt(l.balance)}</span>
+          </div>`;
+        }).join('')}
+        ${overdue.length>5?`<div style="text-align:center;font-size:.76rem;color:var(--text3);margin-top:2px">+${overdue.length-5} more customers with dues</div>`:''}
+      </div>
+    </div>`;
+  }
+  if(lowStock.length){
+    alertsHtml += `
+    <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);border-radius:16px;padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="font-size:1.1rem">⚠️</span>
+        <span style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:.95rem">Low Stock Alert</span>
+        <span style="background:rgba(251,191,36,.2);color:var(--warn);border-radius:20px;padding:2px 9px;font-size:.72rem;font-weight:700">${lowStock.length} products</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px">
+        ${lowStock.slice(0,8).map(p=>{
+          const c=db.companies.find(x=>x.id===p.cId);
+          return `<div style="background:rgba(0,0,0,.15);border-radius:10px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:6px">
+            <div>
+              <div style="font-size:.82rem;font-weight:600">${p.name}</div>
+              <div style="font-size:.7rem;color:var(--text3)">${c?c.name:''}</div>
+            </div>
+            <span style="background:${p.qty===0?'rgba(251,113,133,.2)':'rgba(251,191,36,.18)'};color:${p.qty===0?'var(--red)':'var(--warn)'};border-radius:8px;padding:2px 9px;font-size:.78rem;font-weight:700;white-space:nowrap">${p.qty===0?'Out':p.qty+' left'}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  // Inject alerts div (insert before compPayStats)
+  let alertsDiv = document.getElementById('dashAlerts');
+  if(!alertsDiv){
+    alertsDiv = document.createElement('div');
+    alertsDiv.id = 'dashAlerts';
+    const ref = document.getElementById('compPayStats');
+    ref.parentNode.insertBefore(alertsDiv, ref);
+  }
+  alertsDiv.innerHTML = alertsHtml;
 }
 
 function renderDashStats(){
@@ -2641,7 +2867,9 @@ function openShopDetail(id){
           </div>
           ${(sess.balance>0&&isOwner())?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.75rem;padding:5px 10px" onclick="event.stopPropagation();openAddPay('${sh.id}','${sess.id}')">＋ Pay</button>`:''}
           ${isOwner()?`<button class="btn-xs btn-edit" style="width:28px;height:28px" title="Edit Session" onclick="event.stopPropagation();openEditSess('${sh.id}','${sess.id}')">✏️</button>
+          <button class="btn-xs" style="width:28px;height:28px;background:rgba(249,168,212,.1);color:var(--accent)" title="Print Invoice" onclick="event.stopPropagation();printInvoice('${sh.id}','${sess.id}')">🖨️</button>
           <button class="btn-xs btn-del" style="width:28px;height:28px" title="Delete Session" onclick="event.stopPropagation();delSess('${sh.id}','${sess.id}')">🗑️</button>`:''}
+          ${!isOwner()?`<button class="btn-xs" style="width:28px;height:28px;background:rgba(249,168,212,.1);color:var(--accent)" title="Print Invoice" onclick="event.stopPropagation();printInvoice('${sh.id}','${sess.id}')">🖨️</button>`:''}
           <span style="color:var(--text3);font-size:.8rem">▾</span>
         </div>
       </div>
@@ -2694,15 +2922,170 @@ function openShopDetail(id){
     </div>`;
   }).join(''):'<div class="empty"><div class="empty-ico">🧾</div><div style="font-size:.8rem">No transactions yet</div></div>';
   document.getElementById('sellv-list').style.display='none';
+  document.getElementById('sellv-txnhist').style.display='none';
+  document.getElementById('sellv-delivhist').style.display='none';
   document.getElementById('sellv-detail').style.display='';
 }
 function toggleSess(hdr){
   const body=hdr.nextElementSibling;
   body.style.display=body.style.display==='none'?'':'none';
 }
+// ══════════════════════════════════════════
+// SELL SUB-TABS
+// ══════════════════════════════════════════
+let _sellTab = 'shops';
+function switchSellTab(tab){
+  _sellTab = tab;
+  ['shops','txnhist','delivhist','collections'].forEach(t=>{
+    const btn = document.getElementById('stab-'+t);
+    if(btn) btn.classList[t===tab?'add':'remove']('on');
+  });
+  const shopList   = document.getElementById('sellv-list');
+  const shopDet    = document.getElementById('sellv-detail');
+  const txnPanel   = document.getElementById('sellv-txnhist');
+  const delivPanel = document.getElementById('sellv-delivhist');
+  const collPanel  = document.getElementById('sellv-collections');
+  shopList.style.display   = tab==='shops'?'':'none';
+  if(tab!=='shops') shopDet.style.display='none';
+  txnPanel.style.display   = tab==='txnhist'?'':'none';
+  delivPanel.style.display = tab==='delivhist'?'':'none';
+  collPanel.style.display  = tab==='collections'?'':'none';
+  if(tab==='txnhist')     renderTxnHistory();
+  if(tab==='delivhist')   renderDelivHistory();
+  if(tab==='collections') renderCollections();
+}
+
+// ── Transaction History ──
+let _txnFilter = 'all';
+function setTxnFilter(f, btn){
+  _txnFilter = f;
+  ['all','date','month','year'].forEach(x=>document.getElementById('thf-'+x).classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('thf-date-inp').style.display  = f==='date'?'':'none';
+  document.getElementById('thf-month-inp').style.display = f==='month'?'':'none';
+  document.getElementById('thf-year-inp').style.display  = f==='year'?'':'none';
+  renderTxnHistory();
+}
+function renderTxnHistory(){
+  const now = new Date();
+  // Populate year select
+  const yrSel = document.getElementById('thf-year-inp');
+  const years = [...new Set(db.shops.flatMap(sh=>sh.sessions.map(s=>s.date.substr(0,4))))].sort().reverse();
+  if(!yrSel.options.length || yrSel.dataset.populated!='1'){
+    yrSel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    yrSel.dataset.populated='1';
+  }
+  const filterDate  = document.getElementById('thf-date-inp').value;
+  const filterMonth = document.getElementById('thf-month-inp').value;
+  const filterYear  = yrSel.value;
+  const q = (document.getElementById('thf-search').value||'').toLowerCase();
+  const pi={Cash:'💵','Bank Transfer':'🏦',GPay:'📱',PhonePe:'📲'};
+  let rows = [];
+  db.shops.forEach(sh=>sh.sessions.forEach(sess=>{
+    if(_txnFilter==='date'  && filterDate  && sess.date!==filterDate) return;
+    if(_txnFilter==='month' && filterMonth && !sess.date.startsWith(filterMonth)) return;
+    if(_txnFilter==='year'  && filterYear  && !sess.date.startsWith(filterYear)) return;
+    if(q && !sh.name.toLowerCase().includes(q)) return;
+    rows.push({sh, sess});
+  }));
+  rows.sort((a,b)=>b.sess.date.localeCompare(a.sess.date));
+  // Summary
+  const totBill = rows.reduce((a,r)=>a+(r.sess.newBillTotal||r.sess.total),0);
+  const totPaid = rows.reduce((a,r)=>a+r.sess.paid,0);
+  const totDue  = rows.reduce((a,r)=>a+r.sess.balance,0);
+  document.getElementById('txnh-summary').innerHTML=`
+    <div class="stat-card sc-cyan" style="padding:14px"><div class="stat-label">Total Transactions</div><div class="stat-value" style="font-size:1.1rem">${rows.length}</div></div>
+    <div class="stat-card sc-green" style="padding:14px"><div class="stat-label">Amount Collected</div><div class="stat-value" style="font-size:1.1rem">${fmt(totPaid)}</div></div>
+    <div class="stat-card sc-red"  style="padding:14px"><div class="stat-label">Balance Due</div><div class="stat-value" style="font-size:1.1rem">${fmt(totDue)}</div></div>
+  `;
+  const tb = document.getElementById('txnh-tbody');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="empty-ico">📊</div><div style="font-size:.8rem">No transactions found</div></div></td></tr>';return;}
+  tb.innerHTML = rows.map(({sh,sess})=>{
+    const nb = sess.newBillTotal||sess.total;
+    return `<tr>
+      <td><strong>${fmtD(sess.date)}</strong></td>
+      <td style="color:var(--accent);cursor:pointer;font-weight:600" onclick="openShopDetail('${sh.id}')">${sh.name}</td>
+      <td style="font-size:.8rem;color:var(--text3)">${sess.items.length} item(s)</td>
+      <td style="font-weight:700">${fmt(nb)}</td>
+      <td style="color:var(--green);font-weight:600">${fmt(sess.paid)}</td>
+      <td><span class="due-badge ${sess.balance>0?'due-red':'due-green'}">${sess.balance>0?fmt(sess.balance):'✓'}</span></td>
+      <td>${pi[sess.payMethod]||'💳'} <span style="font-size:.75rem;color:var(--text3)">${sess.payMethod||'—'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Delivery / Stock-Out History ──
+let _delivFilter = 'all';
+function setDelivFilter(f, btn){
+  _delivFilter = f;
+  ['all','date','month','year'].forEach(x=>document.getElementById('dhf-'+x).classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('dhf-date-inp').style.display  = f==='date'?'':'none';
+  document.getElementById('dhf-month-inp').style.display = f==='month'?'':'none';
+  document.getElementById('dhf-year-inp').style.display  = f==='year'?'':'none';
+  renderDelivHistory();
+}
+function renderDelivHistory(){
+  const yrSel = document.getElementById('dhf-year-inp');
+  const years = [...new Set(db.shops.flatMap(sh=>sh.sessions.map(s=>s.date.substr(0,4))))].sort().reverse();
+  if(!yrSel.options.length || yrSel.dataset.populated!='1'){
+    yrSel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    yrSel.dataset.populated='1';
+  }
+  const filterDate  = document.getElementById('dhf-date-inp').value;
+  const filterMonth = document.getElementById('dhf-month-inp').value;
+  const filterYear  = yrSel.value;
+  const q = (document.getElementById('dhf-search').value||'').toLowerCase();
+  // Build flat item-level delivery rows
+  let items = [];
+  db.shops.forEach(sh=>sh.sessions.forEach(sess=>{
+    if(sess.type==='oldbill') return;
+    if(_delivFilter==='date'  && filterDate  && sess.date!==filterDate) return;
+    if(_delivFilter==='month' && filterMonth && !sess.date.startsWith(filterMonth)) return;
+    if(_delivFilter==='year'  && filterYear  && !sess.date.startsWith(filterYear)) return;
+    sess.items.forEach(it=>{
+      if(q && !it.name.toLowerCase().includes(q) && !sh.name.toLowerCase().includes(q)) return;
+      items.push({date:sess.date, shop:sh.name, shopId:sh.id, product:it.name, qty:it.qty, price:it.sellPrice, total:it.sellPrice*it.qty});
+    });
+  }));
+  items.sort((a,b)=>b.date.localeCompare(a.date));
+  const totQty  = items.reduce((a,r)=>a+r.qty,0);
+  const totAmt  = items.reduce((a,r)=>a+r.total,0);
+  const uniqProd= new Set(items.map(r=>r.product)).size;
+  document.getElementById('delivh-summary').innerHTML=`
+    <div class="stat-card sc-purple" style="padding:14px"><div class="stat-label">Units Delivered</div><div class="stat-value" style="font-size:1.1rem">${totQty}</div></div>
+    <div class="stat-card sc-green"  style="padding:14px"><div class="stat-label">Total Value</div><div class="stat-value" style="font-size:1.1rem">${fmt(totAmt)}</div></div>
+    <div class="stat-card sc-cyan"   style="padding:14px"><div class="stat-label">Unique Products</div><div class="stat-value" style="font-size:1.1rem">${uniqProd}</div></div>
+  `;
+  const cont = document.getElementById('delivh-list');
+  if(!items.length){cont.innerHTML='<div class="empty"><div class="empty-ico">📦</div><div style="font-size:.8rem">No deliveries found</div></div>';return;}
+  cont.innerHTML = items.map(r=>`
+    <div class="deliv-row">
+      <div class="deliv-ico">📦</div>
+      <div class="deliv-info">
+        <div class="deliv-shop">${r.product}</div>
+        <div class="deliv-meta">📅 ${fmtD(r.date)} · 🏪 <span style="color:var(--accent);cursor:pointer" onclick="openShopDetail('${r.shopId}')">${r.shop}</span></div>
+      </div>
+      <div style="text-align:right">
+        <div class="deliv-qty">${r.qty} units</div>
+        <div style="font-size:.75rem;color:var(--text3)">${fmt(r.total)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+
 function backToShops(){
   document.getElementById('sellv-list').style.display='';
   document.getElementById('sellv-detail').style.display='none';
+  document.getElementById('sellv-txnhist').style.display='none';
+  document.getElementById('sellv-delivhist').style.display='none';
+  document.getElementById('sellv-collections').style.display='none';
+  _sellTab='shops';
+  ['shops','txnhist','delivhist','collections'].forEach(t=>{
+    const btn=document.getElementById('stab-'+t);
+    if(btn) btn.classList[t==='shops'?'add':'remove']('on');
+  });
   currShopId=null;
 }
 
@@ -2908,6 +3291,270 @@ function delStaff(id){
     renderStaffTab();
     if(window.saveToFirestore) saveToFirestore();
   });
+}
+
+
+// ══════════════════════════════════════════
+// COLLECTIONS — PAYMENTS RECEIVED
+// ══════════════════════════════════════════
+let _collFilter = 'all';
+
+function setCollFilter(f, btn){
+  _collFilter = f;
+  ['all','date','month','year'].forEach(x=>document.getElementById('chf-'+x).classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('chf-date-inp').style.display  = f==='date'?'':'none';
+  document.getElementById('chf-month-inp').style.display = f==='month'?'':'none';
+  document.getElementById('chf-year-inp').style.display  = f==='year'?'':'none';
+  renderCollections();
+}
+
+function renderCollections(){
+  const pi={Cash:'💵','Bank Transfer':'🏦',GPay:'📱',PhonePe:'📲'};
+
+  // Populate year dropdown
+  const yrSel = document.getElementById('chf-year-inp');
+  // Collect all payment dates across all sessions' payments arrays
+  const allPayDates = [];
+  db.shops.forEach(sh=>sh.sessions.forEach(sess=>{
+    (sess.payments||[]).forEach(pay=>{ if(pay.date) allPayDates.push(pay.date.substr(0,4)); });
+    // also capture direct session payment date if no payments array entries
+    if((!sess.payments||sess.payments.length===0) && sess.paid>0 && sess.date)
+      allPayDates.push(sess.date.substr(0,4));
+  }));
+  const years = [...new Set(allPayDates)].sort().reverse();
+  if(yrSel.dataset.populated !== years.join()){
+    yrSel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    yrSel.dataset.populated = years.join();
+  }
+
+  const filterDate  = document.getElementById('chf-date-inp').value;
+  const filterMonth = document.getElementById('chf-month-inp').value;
+  const filterYear  = yrSel.value;
+  const q = (document.getElementById('chf-search').value||'').toLowerCase();
+
+  // Build flat payment rows — one row per individual payment
+  let payments = [];
+  db.shops.forEach(sh=>{
+    sh.sessions.forEach(sess=>{
+      const billDate = sess.date;
+      if(sess.payments && sess.payments.length){
+        sess.payments.forEach(pay=>{
+          const pd = pay.date||billDate;
+          if(_collFilter==='date'  && filterDate  && pd!==filterDate) return;
+          if(_collFilter==='month' && filterMonth && !pd.startsWith(filterMonth)) return;
+          if(_collFilter==='year'  && filterYear  && !pd.startsWith(filterYear)) return;
+          if(q && !sh.name.toLowerCase().includes(q) && !(pay.method||'').toLowerCase().includes(q)) return;
+          payments.push({
+            payDate: pd,
+            shop: sh.name,
+            shopId: sh.id,
+            billDate,
+            amount: pay.amount,
+            method: pay.method||sess.payMethod||'Cash',
+            sessBalance: sess.balance
+          });
+        });
+      } else if(sess.paid>0){
+        // Legacy: no payments array — use session paid amount & date
+        const pd = billDate;
+        if(_collFilter==='date'  && filterDate  && pd!==filterDate) return;
+        if(_collFilter==='month' && filterMonth && !pd.startsWith(filterMonth)) return;
+        if(_collFilter==='year'  && filterYear  && !pd.startsWith(filterYear)) return;
+        if(q && !sh.name.toLowerCase().includes(q) && !(sess.payMethod||'').toLowerCase().includes(q)) return;
+        payments.push({
+          payDate: pd,
+          shop: sh.name,
+          shopId: sh.id,
+          billDate,
+          amount: sess.paid,
+          method: sess.payMethod||'Cash',
+          sessBalance: sess.balance
+        });
+      }
+    });
+  });
+
+  // Sort by payment date descending
+  payments.sort((a,b)=>b.payDate.localeCompare(a.payDate)||b.billDate.localeCompare(a.billDate));
+
+  // Summary
+  const totalCollected = payments.reduce((a,r)=>a+r.amount,0);
+  const uniqueCustomers = new Set(payments.map(r=>r.shopId)).size;
+  const totalTxns = payments.length;
+
+  document.getElementById('coll-summary').innerHTML=`
+    <div class="stat-card sc-green"  style="padding:14px">
+      <div class="stat-label">💰 Total Collected</div>
+      <div class="stat-value" style="font-size:1.15rem">${fmt(totalCollected)}</div>
+    </div>
+    <div class="stat-card sc-cyan"   style="padding:14px">
+      <div class="stat-label">🧾 Payment Entries</div>
+      <div class="stat-value" style="font-size:1.15rem">${totalTxns}</div>
+    </div>
+    <div class="stat-card sc-blue"   style="padding:14px">
+      <div class="stat-label">🏪 Customers</div>
+      <div class="stat-value" style="font-size:1.15rem">${uniqueCustomers}</div>
+    </div>
+  `;
+
+  // Method breakdown
+  const methods = {};
+  payments.forEach(p=>{ methods[p.method]=(methods[p.method]||0)+p.amount; });
+  const methodTotal = Object.values(methods).reduce((a,v)=>a+v,0)||1;
+  const methodColors = {Cash:'var(--green)','Bank Transfer':'var(--accent)',GPay:'var(--warn)',PhonePe:'#b060ff'};
+  document.getElementById('coll-methods').innerHTML = Object.keys(methods).length ? `
+    <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px;backdrop-filter:blur(12px)">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Payment Method Breakdown</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+        ${Object.entries(methods).map(([m,v])=>`
+          <div style="display:flex;align-items:center;gap:7px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:10px;padding:8px 13px">
+            <span>${pi[m]||'💳'}</span>
+            <span style="font-size:.82rem;font-weight:600">${m}</span>
+            <span style="font-family:'Clash Display',sans-serif;font-size:.9rem;font-weight:700;color:${methodColors[m]||'var(--accent)'}">
+              ${fmt(v)}
+            </span>
+            <span style="font-size:.72rem;color:var(--text3)">(${((v/methodTotal)*100).toFixed(1)}%)</span>
+          </div>`).join('')}
+      </div>
+      <div style="height:10px;border-radius:10px;overflow:hidden;display:flex;gap:2px">
+        ${Object.entries(methods).map(([m,v])=>`
+          <div style="flex:${v};background:${methodColors[m]||'var(--accent)'};opacity:.8;border-radius:10px;transition:flex .4s"></div>
+        `).join('')}
+      </div>
+    </div>` : '';
+
+  // Table
+  const tb = document.getElementById('coll-tbody');
+  if(!payments.length){
+    tb.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-ico">💳</div><div style="font-size:.8rem">No payment collections found</div></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = payments.map(r=>`
+    <tr>
+      <td><strong>${fmtD(r.payDate)}</strong></td>
+      <td style="color:var(--accent);cursor:pointer;font-weight:600"
+          onclick="switchSellTab('shops');setTimeout(()=>openShopDetail('${r.shopId}'),80)">${r.shop}</td>
+      <td style="color:var(--text3);font-size:.82rem">${fmtD(r.billDate)}</td>
+      <td><span style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700;color:var(--green)">${fmt(r.amount)}</span></td>
+      <td>${pi[r.method]||'💳'} <span style="font-size:.8rem;color:var(--text3)">${r.method}</span></td>
+      <td><span class="due-badge ${r.sessBalance>0?'due-red':'due-green'}">${r.sessBalance>0?fmt(r.sessBalance):'Settled ✓'}</span></td>
+    </tr>
+  `).join('');
+}
+
+function exportCollectionsCSV(){
+  const pi={Cash:'Cash','Bank Transfer':'Bank Transfer',GPay:'GPay',PhonePe:'PhonePe'};
+  let rows=[['Payment Date','Customer/Shop','Bill Date','Amount Collected','Payment Method','Balance After']];
+  db.shops.forEach(sh=>{
+    sh.sessions.forEach(sess=>{
+      const billDate=sess.date;
+      if(sess.payments&&sess.payments.length){
+        sess.payments.forEach(pay=>{
+          rows.push([pay.date||billDate, sh.name, billDate, pay.amount, pay.method||sess.payMethod||'Cash', sess.balance]);
+        });
+      } else if(sess.paid>0){
+        rows.push([billDate, sh.name, billDate, sess.paid, sess.payMethod||'Cash', sess.balance]);
+      }
+    });
+  });
+  rows.sort((a,b)=>b[0].localeCompare(a[0]));
+  downloadCSV(rows,'collections-history.csv');
+  toast('Collections exported 📥','ok','pay');
+}
+
+// ══════════════════════════════════════════
+// EXPORT CSV
+// ══════════════════════════════════════════
+function exportTxnCSV(){
+  const pi={Cash:'Cash','Bank Transfer':'Bank Transfer',GPay:'GPay',PhonePe:'PhonePe'};
+  let rows=[['Date','Shop','Items','Bill Amount','Paid','Balance Due','Payment Method']];
+  db.shops.forEach(sh=>sh.sessions.forEach(sess=>{
+    const nb=sess.newBillTotal||sess.total;
+    rows.push([sess.date,sh.name,sess.items.length,nb,sess.paid,sess.balance,sess.payMethod||'']);
+  }));
+  rows.sort((a,b)=>b[0].localeCompare(a[0]));
+  downloadCSV(rows,'sell-transactions.csv');
+  toast('CSV exported 📥','ok','pay');
+}
+function exportDelivCSV(){
+  let rows=[['Date','Shop','Product','Qty','Unit Price','Total']];
+  db.shops.forEach(sh=>sh.sessions.forEach(sess=>{
+    if(sess.type==='oldbill') return;
+    sess.items.forEach(it=>{
+      rows.push([sess.date,sh.name,it.name,it.qty,it.sellPrice,it.sellPrice*it.qty]);
+    });
+  }));
+  rows.sort((a,b)=>b[0].localeCompare(a[0]));
+  downloadCSV(rows,'delivery-history.csv');
+  toast('CSV exported 📥','ok','pay');
+}
+function downloadCSV(rows, filename){
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+// PRINT INVOICE
+// ══════════════════════════════════════════
+function printInvoice(shopId, sessId){
+  const sh=db.shops.find(x=>x.id===shopId);
+  const sess=sh.sessions.find(s=>s.id===sessId);
+  if(!sess) return;
+  const newBill=sess.newBillTotal||sess.total;
+  const prevBal=sess.prevBalance||0;
+  const itemRows=sess.items.map(it=>`
+    <tr>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee">${it.name}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right">₹${it.sellPrice.toFixed(2)}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center">${it.qty}</td>
+      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:600">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
+    </tr>`).join('');
+  const win=window.open('','_blank','width=700,height=900');
+  win.document.write(`<!DOCTYPE html><html><head><title>Invoice – ${sh.name}</title>
+  <style>
+    body{font-family:Arial,sans-serif;padding:40px;color:#111;max-width:680px;margin:0 auto}
+    h1{font-size:1.4rem;margin:0}
+    .meta{font-size:.85rem;color:#555;margin:4px 0}
+    .divider{border:none;border-top:2px solid #222;margin:18px 0}
+    table{width:100%;border-collapse:collapse;margin:12px 0}
+    th{background:#f5f5f5;padding:9px 10px;text-align:left;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px}
+    th:last-child,th:nth-child(3){text-align:right}th:nth-child(3){text-align:center}
+    .total-row{font-weight:700;font-size:1rem}
+    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700}
+    .green{background:#d1fae5;color:#065f46}.red{background:#fee2e2;color:#991b1b}
+    @media print{button{display:none!important}}
+  </style></head><body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <h1>🏪 Sivasakthi Marketing</h1>
+      <div class="meta">Invoice / Bill Receipt</div>
+    </div>
+    <button onclick="window.print()" style="padding:8px 18px;border:none;background:#e11d48;color:#fff;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700">🖨️ Print</button>
+  </div>
+  <hr class="divider">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+    <div><div style="font-size:.72rem;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Customer</div><div style="font-weight:700;font-size:1rem">${sh.name}</div></div>
+    <div style="text-align:right"><div style="font-size:.72rem;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Date</div><div style="font-weight:700">${fmtD(sess.date)}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Product</th><th style="text-align:right">Price</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${itemRows}</tbody>
+    <tfoot>
+      <tr class="total-row"><td colspan="3" style="padding:10px;text-align:right">New Bill</td><td style="padding:10px;text-align:right">₹${newBill.toFixed(2)}</td></tr>
+      ${prevBal>0?`<tr style="color:#dc2626"><td colspan="3" style="padding:5px 10px;text-align:right">+ Previous Balance</td><td style="padding:5px 10px;text-align:right">₹${prevBal.toFixed(2)}</td></tr>
+      <tr class="total-row" style="background:#fef2f2"><td colspan="3" style="padding:10px;text-align:right">Total Bill</td><td style="padding:10px;text-align:right">₹${sess.total.toFixed(2)}</td></tr>`:''}
+      <tr style="color:#16a34a"><td colspan="3" style="padding:5px 10px;text-align:right">Paid (${sess.payMethod})</td><td style="padding:5px 10px;text-align:right">₹${sess.paid.toFixed(2)}</td></tr>
+      <tr class="total-row" style="background:${sess.balance>0?'#fef2f2':'#f0fdf4'}"><td colspan="3" style="padding:10px;text-align:right">Balance Due</td><td style="padding:10px;text-align:right"><span class="badge ${sess.balance>0?'red':'green'}">${sess.balance>0?'₹'+sess.balance.toFixed(2):'Settled ✓'}</span></td></tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:24px;font-size:.78rem;color:#888;text-align:center">Thank you for your business · Sivasakthi Marketing</div>
+  </body></html>`);
+  win.document.close();
 }
 
 // ══════════════════════════════════════════
