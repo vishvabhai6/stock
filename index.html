@@ -1076,6 +1076,12 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
 <!-- ══════════ STOCK ══════════ -->
 <div class="page" id="page-stock">
+  <!-- Sub-nav tabs -->
+  <div style="display:flex;gap:4px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px);width:fit-content;flex-wrap:wrap">
+    <button class="hf-btn on" id="sttab-companies" onclick="switchStockTab('companies')">🏢 Companies</button>
+    <button class="hf-btn" id="sttab-stockhist" onclick="switchStockTab('stockhist')">📅 Stock History</button>
+  </div>
+
   <!-- Companies view -->
   <div id="sv-companies">
     <div class="sec-hdr">
@@ -1090,6 +1096,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     </div>
     <div class="company-grid" id="compGrid"></div>
   </div>
+
   <!-- Products view -->
   <div id="sv-products" style="display:none">
     <div class="back-btn" onclick="backToComps()">← Companies</div>
@@ -1110,9 +1117,46 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       <table>
         <thead><tr>
           <th>Product</th><th>Buy Price</th><th>Sell Price</th>
-          <th>Margin</th><th>Stock</th><th>Sold</th><th>Actions</th>
+          <th>Margin</th><th>Stock</th><th>Last Purchase</th><th>Sold</th><th>Actions</th>
         </tr></thead>
         <tbody id="prodTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Stock History view -->
+  <div id="sv-stockhist" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="sec-title">📅 Stock Purchase History</div>
+      <button class="btn btn-ghost btn-sm" onclick="exportStockHistCSV()">⬇️ Export CSV</button>
+    </div>
+    <!-- Filter bar -->
+    <div class="hist-filter-bar">
+      <span class="hf-label">Filter:</span>
+      <button class="hf-btn on" id="shf-all"   onclick="setStockHistFilter('all',this)">All</button>
+      <button class="hf-btn"    id="shf-date"  onclick="setStockHistFilter('date',this)">By Date</button>
+      <button class="hf-btn"    id="shf-month" onclick="setStockHistFilter('month',this)">By Month</button>
+      <button class="hf-btn"    id="shf-year"  onclick="setStockHistFilter('year',this)">By Year</button>
+      <input type="date"  class="hf-inp" id="shf-date-inp"  style="display:none" oninput="renderStockHist()">
+      <input type="month" class="hf-inp" id="shf-month-inp" style="display:none" oninput="renderStockHist()">
+      <select             class="hf-inp" id="shf-year-inp"  style="display:none" onchange="renderStockHist()"></select>
+      <div style="margin-left:auto">
+        <div class="search-wrap" style="min-width:150px">
+          <span style="color:var(--text3)">🔍</span>
+          <input type="text" placeholder="Product / Company…" id="shf-search" oninput="renderStockHist()">
+        </div>
+      </div>
+    </div>
+    <!-- Summary strip -->
+    <div class="qs-strip" id="stkh-summary"></div>
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Purchase Date</th><th>Product</th><th>Company</th>
+          <th>Buy Price</th><th>Sell Price</th><th>Qty Added</th><th>Total Value</th><th>Note</th>
+        </tr></thead>
+        <tbody id="stkh-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -1645,6 +1689,7 @@ function showAppPage(email){
   document.getElementById('chartMonth').value = `${now2.getFullYear()}-${String(now2.getMonth()+1).padStart(2,'0')}`;
   if(window.loadFromFirestore) loadFromFirestore();
   else { renderDash(); renderComps(); renderShops(); }
+  setTimeout(_applyStaffRestrictions, 600);
 }
 
 // (staff view-only is handled per-render via isOwner() checks)
@@ -1855,25 +1900,49 @@ function showPage(name){
   const idx=['dashboard','stock','sell','staff'].indexOf(name);
   const btns = document.querySelectorAll('.nav-btn');
   if(idx>=0 && btns[idx]) btns[idx].classList.add('active');
-  // Update mobile bottom nav
   ['mnDash','mnStock','mnSell','mnStaff'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('active');});
   const mMap={dashboard:'mnDash',stock:'mnStock',sell:'mnSell',staff:'mnStaff'};
   if(mMap[name]){const el=document.getElementById(mMap[name]);if(el)el.classList.add('active');}
+
+  const owner = isOwner();
+
   if(name==='dashboard') renderDash();
   if(name==='stock'){
-    showComps();renderComps();
+    showComps(); renderComps();
+    // Owner-only buttons
     const acb=document.getElementById('addCompBtn');
-    if(acb) acb.style.display=isOwner()?'':' none';
+    if(acb) acb.style.display=owner?'':'none';
+    const apb=document.getElementById('addProdBtn');
+    if(apb) apb.style.display=owner?'':'none';
   }
   if(name==='sell'){
     renderShops();
-    // Hide action buttons for staff
     const nsb=document.getElementById('newSaleBtn');
     const obb=document.getElementById('oldBillBtn');
-    if(nsb) nsb.style.display=isOwner()?'':' none';
-    if(obb) obb.style.display=isOwner()?'':' none';
+    if(nsb) nsb.style.display=owner?'':'none';
+    if(obb) obb.style.display=owner?'':'none';
   }
   if(name==='staff') renderStaffTab();
+
+  // Apply global staff restriction badge
+  _applyStaffRestrictions();
+}
+
+function _applyStaffRestrictions(){
+  if(isOwner()) return;
+  // Hide all owner-action buttons by class/id
+  const ownerOnlyIds=['addCompBtn','addProdBtn','newSaleBtn','oldBillBtn',
+    'addProductsBtn','renameShopBtn','addOldBillDetailBtn','addStaffBtn'];
+  ownerOnlyIds.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  // Show a staff view-only banner if not already shown
+  const existing=document.getElementById('staffBanner');
+  if(!existing){
+    const banner=document.createElement('div');
+    banner.id='staffBanner';
+    banner.style.cssText='position:fixed;bottom:68px;left:50%;transform:translateX(-50%);z-index:400;background:rgba(249,168,212,.12);border:1px solid rgba(249,168,212,.3);border-radius:12px;padding:6px 16px;font-size:.74rem;color:var(--accent);font-weight:600;white-space:nowrap;backdrop-filter:blur(10px);pointer-events:none';
+    banner.textContent='👁️ View Only — Staff Account';
+    document.body.appendChild(banner);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -2118,11 +2187,102 @@ function renderRecentTxns(){
   `:'<div class="empty"><div class="empty-ico">📋</div><div style="font-size:.8rem">No transactions yet</div></div>';
 }
 
+
+// ══════════════════════════════════════════
+// STOCK — TAB SWITCHING + HISTORY
+// ══════════════════════════════════════════
+function switchStockTab(tab){
+  ['companies','stockhist'].forEach(t=>{
+    const btn=document.getElementById('sttab-'+t);
+    if(btn) btn.classList[t===tab?'add':'remove']('on');
+  });
+  document.getElementById('sv-companies').style.display = tab==='companies'?'':'none';
+  document.getElementById('sv-products').style.display  = 'none';
+  document.getElementById('sv-stockhist').style.display = tab==='stockhist'?'':'none';
+  if(tab==='stockhist') renderStockHist();
+  if(tab==='companies') renderComps();
+}
+
+function showComps(){
+  document.getElementById('sv-companies').style.display='';
+  document.getElementById('sv-products').style.display='none';
+  document.getElementById('sv-stockhist').style.display='none';
+  const c=document.getElementById('sttab-companies');if(c)c.classList.add('on');
+  const s=document.getElementById('sttab-stockhist');if(s)s.classList.remove('on');
+}
+function showProds(){document.getElementById('sv-companies').style.display='none';document.getElementById('sv-products').style.display='';}
+
+// ── Stock History ──
+let _stockHistFilter='all';
+function setStockHistFilter(f,btn){
+  _stockHistFilter=f;
+  ['all','date','month','year'].forEach(x=>document.getElementById('shf-'+x).classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('shf-date-inp').style.display  = f==='date'?'':'none';
+  document.getElementById('shf-month-inp').style.display = f==='month'?'':'none';
+  document.getElementById('shf-year-inp').style.display  = f==='year'?'':'none';
+  renderStockHist();
+}
+function renderStockHist(){
+  const yrSel=document.getElementById('shf-year-inp');
+  const allYears=[...new Set(db.products.flatMap(p=>(p.priceHistory||[]).map(h=>h.date.substr(0,4))))].sort().reverse();
+  if(yrSel&&yrSel.dataset.populated!==allYears.join()){
+    yrSel.innerHTML=allYears.map(y=>`<option value="${y}">${y}</option>`).join('');
+    yrSel.dataset.populated=allYears.join();
+  }
+  const fd=document.getElementById('shf-date-inp').value;
+  const fm=document.getElementById('shf-month-inp').value;
+  const fy=yrSel?yrSel.value:'';
+  const q=(document.getElementById('shf-search').value||'').toLowerCase();
+  let rows=[];
+  db.products.forEach(p=>{
+    const c=db.companies.find(x=>x.id===p.cId);
+    (p.priceHistory||[]).forEach(h=>{
+      if(_stockHistFilter==='date'&&fd&&h.date!==fd) return;
+      if(_stockHistFilter==='month'&&fm&&!h.date.startsWith(fm)) return;
+      if(_stockHistFilter==='year'&&fy&&!h.date.startsWith(fy)) return;
+      if(q&&!p.name.toLowerCase().includes(q)&&!(c?c.name:'').toLowerCase().includes(q)) return;
+      rows.push({date:h.date,product:p.name,company:c?c.name:'—',buy:h.buy,sell:h.sell,qty:h.qty||0,note:h.note||'',value:(h.buy||0)*(h.qty||0)});
+    });
+  });
+  rows.sort((a,b)=>b.date.localeCompare(a.date));
+  const totQty=rows.reduce((a,r)=>a+r.qty,0);
+  const totValue=rows.reduce((a,r)=>a+r.value,0);
+  const uniqProds=new Set(rows.map(r=>r.product)).size;
+  document.getElementById('stkh-summary').innerHTML=`
+    <div class="stat-card sc-purple" style="padding:14px"><div class="stat-label">Units Stocked</div><div class="stat-value" style="font-size:1.1rem">${totQty}</div></div>
+    <div class="stat-card sc-cyan"   style="padding:14px"><div class="stat-label">Stock Value (Buy)</div><div class="stat-value" style="font-size:1.1rem">${fmt(totValue)}</div></div>
+    <div class="stat-card sc-blue"   style="padding:14px"><div class="stat-label">Products</div><div class="stat-value" style="font-size:1.1rem">${uniqProds}</div></div>
+  `;
+  const tb=document.getElementById('stkh-tbody');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="8"><div class="empty"><div class="empty-ico">📦</div><div style="font-size:.8rem">No stock history found</div></div></td></tr>';return;}
+  tb.innerHTML=rows.map(r=>`<tr>
+    <td><strong>${fmtD(r.date)}</strong></td>
+    <td style="font-weight:600">${r.product}</td>
+    <td style="color:var(--text3);font-size:.8rem">${r.company}</td>
+    <td style="color:var(--accent)">${fmt(r.buy)}</td>
+    <td style="color:var(--green);font-weight:600">${fmt(r.sell)}</td>
+    <td><span class="badge bg">${r.qty} units</span></td>
+    <td style="font-weight:700">${r.value>0?fmt(r.value):'—'}</td>
+    <td style="font-size:.78rem;color:var(--text3);font-style:italic">${r.note||'—'}</td>
+  </tr>`).join('');
+}
+function exportStockHistCSV(){
+  let rows=[['Purchase Date','Product','Company','Buy Price','Sell Price','Qty Added','Total Value','Note']];
+  db.products.forEach(p=>{
+    const c=db.companies.find(x=>x.id===p.cId);
+    (p.priceHistory||[]).forEach(h=>{
+      rows.push([h.date,p.name,c?c.name:'',h.buy,h.sell,h.qty||0,(h.buy||0)*(h.qty||0),h.note||'']);
+    });
+  });
+  rows.sort((a,b)=>b[0].localeCompare(a[0]));
+  downloadCSV(rows,'stock-history.csv');
+  toast('Stock history exported 📥','ok','pay');
+}
+
 // ══════════════════════════════════════════
 // STOCK — COMPANIES
 // ══════════════════════════════════════════
-function showComps(){document.getElementById('sv-companies').style.display='';document.getElementById('sv-products').style.display='none';}
-function showProds(){document.getElementById('sv-companies').style.display='none';document.getElementById('sv-products').style.display='';}
 
 function renderComps(){
   const q=(document.getElementById('stockSearch').value||'').toLowerCase();
@@ -2183,30 +2343,38 @@ function renderCompFinanceBanner(id){
 
   // Build per-record rows
   const recRows = records.length ? records.map(r=>{
-    const rPend=Math.max(0,r.amount-r.paid);
+    const totalPaid=(r.paidInHand||0)+(r.paidBank||0)+(r.paidGPay||0)+(r.paidPhonePe||0);
+    const rPaid = totalPaid > 0 ? totalPaid : (r.paid||0); // fallback to legacy paid
+    const rPend=Math.max(0,r.amount-rPaid);
+    const payBreakdown=[];
+    if(r.paidInHand>0) payBreakdown.push(`💵 ₹${r.paidInHand.toLocaleString('en-IN')}`);
+    if(r.paidBank>0)   payBreakdown.push(`🏦 ₹${r.paidBank.toLocaleString('en-IN')}`);
+    if(r.paidGPay>0)   payBreakdown.push(`📱 ₹${r.paidGPay.toLocaleString('en-IN')}`);
+    if(r.paidPhonePe>0)payBreakdown.push(`📲 ₹${r.paidPhonePe.toLocaleString('en-IN')}`);
     return `
-    <div style="display:flex;align-items:center;gap:10px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:11px 14px;margin-bottom:8px">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-          <span style="font-size:.78rem;font-weight:700">📅 ${fmtD(r.date)}</span>
-          ${r.note?`<span style="font-size:.7rem;color:var(--text3)">${r.note}</span>`:''}
+    <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:11px 14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        <span style="font-size:.78rem;font-weight:700">📅 ${fmtD(r.date)}${r.note?` · <span style='color:var(--text3);font-weight:400'>${r.note}</span>`:''}</span>
+        ${isOwner()&&rPend>0?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.74rem;padding:5px 10px;white-space:nowrap" onclick="openCompPayModal('${id}','${r.id}')">＋ Pay</button>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:${payBreakdown.length?'8px':'0'}">
+        <div>
+          <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Purchased</div>
+          <div style="font-weight:700;color:var(--accent);font-size:.88rem">${fmt(r.amount)}</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-          <div>
-            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Purchased</div>
-            <div style="font-weight:700;color:var(--accent);font-size:.88rem">${fmt(r.amount)}</div>
-          </div>
-          <div>
-            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Paid</div>
-            <div style="font-weight:700;color:var(--green);font-size:.88rem">${fmt(r.paid)}</div>
-          </div>
-          <div>
-            <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Pending</div>
-            <div style="font-weight:700;font-size:.88rem;color:${rPend>0?'var(--red)':'var(--green)'}">${rPend>0?fmt(rPend):'Cleared ✓'}</div>
-          </div>
+        <div>
+          <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Paid</div>
+          <div style="font-weight:700;color:var(--green);font-size:.88rem">${fmt(rPaid)}</div>
+        </div>
+        <div>
+          <div style="font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px">Pending</div>
+          <div style="font-weight:700;font-size:.88rem;color:${rPend>0?'var(--red)':'var(--green)'}">${rPend>0?fmt(rPend):'Cleared ✓'}</div>
         </div>
       </div>
-      ${isOwner()&&rPend>0?`<button class="btn btn-sm" style="background:rgba(255,170,0,.12);color:var(--warn);border:1px solid rgba(255,170,0,.3);font-size:.74rem;padding:5px 10px;white-space:nowrap" onclick="openCompPayModal('${id}','${r.id}')">＋ Pay</button>`:''}
+      ${payBreakdown.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;background:rgba(0,0,0,.12);border-radius:8px;padding:7px 10px">
+        <span style="font-size:.68rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;width:100%;margin-bottom:2px">Payment via:</span>
+        ${payBreakdown.map(b=>`<span style="font-size:.75rem;font-weight:600">${b}</span>`).join('<span style="color:var(--glass-border-h)">·</span>')}
+      </div>`:''}
     </div>`;
   }).join('') : '<div style="text-align:center;padding:14px;font-size:.8rem;color:var(--text3)">No purchase records. Click Edit to add entries.</div>';
 
@@ -2243,10 +2411,14 @@ function addPurchaseRow(entry=null){
   const id = uid();
   _purchaseRows.push({
     id,
-    date: entry?entry.date:today(),
-    amount: entry?entry.amount:0,
-    paid: entry?entry.paid:0,
-    note: entry?entry.note:''
+    date:    entry ? entry.date    : today(),
+    amount:  entry ? entry.amount  : 0,
+    paid:    entry ? entry.paid    : 0,
+    paidInHand:  entry ? (entry.paidInHand||0)  : 0,
+    paidBank:    entry ? (entry.paidBank||0)     : 0,
+    paidGPay:    entry ? (entry.paidGPay||0)     : 0,
+    paidPhonePe: entry ? (entry.paidPhonePe||0)  : 0,
+    note:    entry ? entry.note    : ''
   });
   renderPurchaseRows();
 }
@@ -2254,57 +2426,101 @@ function addPurchaseRow(entry=null){
 function renderPurchaseRows(){
   const cont = document.getElementById('purchaseRows');
   if(!_purchaseRows.length){
-    cont.innerHTML = '<div style="text-align:center;padding:16px;font-size:.8rem;color:var(--text3)">No purchase records yet. Click + Add Entry to add one.</div>';
+    cont.innerHTML = '<div style="text-align:center;padding:16px;font-size:.8rem;color:var(--text3)">No purchase records yet. Click + Add Entry.</div>';
     document.getElementById('cmpTotalsPreview').style.display='none';
     return;
   }
-  cont.innerHTML = _purchaseRows.map(r=>`
-    <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:11px 12px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center">
+  const IS = s=>`style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none"`;
+  cont.innerHTML = _purchaseRows.map(r=>{
+    const totalPaid = (parseFloat(r.paidInHand)||0)+(parseFloat(r.paidBank)||0)+(parseFloat(r.paidGPay)||0)+(parseFloat(r.paidPhonePe)||0);
+    const pending = Math.max(0,(parseFloat(r.amount)||0)-totalPaid);
+    return `
+    <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:13px 13px 10px">
+      <!-- Row 1: Date + Amount + Delete -->
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:10px">
         <div>
-          <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Date</div>
-          <input type="date" value="${r.date}" onchange="updPRow('${r.id}','date',this.value)"
-            style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none">
+          <div style="font-size:.63rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Purchase Date</div>
+          <input type="date" value="${r.date}" onchange="updPRow('${r.id}','date',this.value)" ${IS()}>
         </div>
         <div>
-          <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Purchased (₹)</div>
-          <input type="number" value="${r.amount||''}" placeholder="0" onchange="updPRow('${r.id}','amount',this.value)"
-            style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none">
+          <div style="font-size:.63rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Bill Amount (₹)</div>
+          <input type="number" value="${r.amount||''}" placeholder="0" onchange="updPRow('${r.id}','amount',this.value)" ${IS()}>
         </div>
-        <div>
-          <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Paid (₹)</div>
-          <input type="number" value="${r.paid||''}" placeholder="0" onchange="updPRow('${r.id}','paid',this.value)"
-            style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.8rem;width:100%;outline:none">
+        <button class="btn-xs btn-del" onclick="delPRow('${r.id}')" style="margin-bottom:1px">✕</button>
+      </div>
+      <!-- Row 2: Payment breakdown -->
+      <div style="background:rgba(0,0,0,.12);border-radius:10px;padding:10px;margin-bottom:8px">
+        <div style="font-size:.63rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">💳 Payment Breakdown</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);margin-bottom:3px">💵 In Hand (Cash)</div>
+            <input type="number" value="${r.paidInHand||''}" placeholder="0" onchange="updPRowPay('${r.id}','paidInHand',this.value)" ${IS()}>
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);margin-bottom:3px">🏦 Bank Transfer</div>
+            <input type="number" value="${r.paidBank||''}" placeholder="0" onchange="updPRowPay('${r.id}','paidBank',this.value)" ${IS()}>
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);margin-bottom:3px">📱 GPay</div>
+            <input type="number" value="${r.paidGPay||''}" placeholder="0" onchange="updPRowPay('${r.id}','paidGPay',this.value)" ${IS()}>
+          </div>
+          <div>
+            <div style="font-size:.62rem;color:var(--text3);margin-bottom:3px">📲 PhonePe</div>
+            <input type="number" value="${r.paidPhonePe||''}" placeholder="0" onchange="updPRowPay('${r.id}','paidPhonePe',this.value)" ${IS()}>
+          </div>
         </div>
-        <button class="btn-xs btn-del" onclick="delPRow('${r.id}')" style="margin-top:16px">✕</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:7px;border-top:1px solid var(--glass-border)">
+          <span style="font-size:.73rem;color:var(--text3)">Total Paid: <strong style="color:var(--green)">${fmt(totalPaid)}</strong></span>
+          <span style="font-size:.73rem;color:${pending>0?'var(--red)':'var(--green)'};">${pending>0?'Pending: '+fmt(pending):'Cleared ✓'}</span>
+        </div>
       </div>
-      <div style="margin-top:6px">
-        <input type="text" value="${r.note||''}" placeholder="Note (optional)" onchange="updPRow('${r.id}','note',this.value)"
-          style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.76rem;width:100%;outline:none">
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:4px">
-        <span style="font-size:.72rem;color:${(r.amount-r.paid)>0?'var(--red)':'var(--green)'}">
-          ${(r.amount-r.paid)>0?'Pending: '+fmt(r.amount-r.paid):'Cleared ✓'}
-        </span>
-      </div>
-    </div>
-  `).join('');
+      <!-- Note -->
+      <input type="text" value="${r.note||''}" placeholder="Note (optional)" onchange="updPRow('${r.id}','note',this.value)"
+        style="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.75rem;width:100%;outline:none">
+    </div>`;
+  }).join('');
   // Update totals
   const totPurch = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
-  const totPaid  = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.paid)||0),0);
+  const totInHand= _purchaseRows.reduce((a,r)=>a+(parseFloat(r.paidInHand)||0),0);
+  const totBank  = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.paidBank)||0),0);
+  const totGPay  = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.paidGPay)||0),0);
+  const totPP    = _purchaseRows.reduce((a,r)=>a+(parseFloat(r.paidPhonePe)||0),0);
+  const totPaid  = totInHand+totBank+totGPay+totPP;
   const totPend  = Math.max(0,totPurch-totPaid);
   document.getElementById('cmpTotPurch').textContent = fmt(totPurch);
   document.getElementById('cmpTotPaid').textContent  = fmt(totPaid);
   document.getElementById('cmpTotPend').textContent  = totPend>0?fmt(totPend):'Cleared ✓';
   document.getElementById('cmpTotPend').style.color  = totPend>0?'var(--red)':'var(--green)';
   document.getElementById('cmpTotalsPreview').style.display = '';
+  // Extra breakdown summary under totals
+  let bkEl = document.getElementById('cmpPayBreakdown');
+  if(!bkEl){
+    bkEl=document.createElement('div');
+    bkEl.id='cmpPayBreakdown';
+    document.getElementById('cmpTotalsPreview').appendChild(bkEl);
+  }
+  bkEl.innerHTML=totPaid>0?`
+    <div style="border-top:1px solid var(--glass-border);margin-top:8px;padding-top:8px;display:flex;flex-wrap:wrap;gap:10px">
+      ${totInHand>0?`<span style="font-size:.72rem">💵 Cash: <strong style="color:var(--green)">${fmt(totInHand)}</strong></span>`:''}
+      ${totBank>0?`<span style="font-size:.72rem">🏦 Bank: <strong style="color:var(--accent)">${fmt(totBank)}</strong></span>`:''}
+      ${totGPay>0?`<span style="font-size:.72rem">📱 GPay: <strong style="color:var(--warn)">${fmt(totGPay)}</strong></span>`:''}
+      ${totPP>0?`<span style="font-size:.72rem">📲 PhonePe: <strong style="color:#b060ff">${fmt(totPP)}</strong></span>`:''}
+    </div>`:'';
 }
 
 function updPRow(id,field,val){
   const r=_purchaseRows.find(x=>x.id===id);
   if(!r) return;
-  if(field==='amount'||field==='paid') r[field]=parseFloat(val)||0;
+  if(field==='amount') r.amount=parseFloat(val)||0;
   else r[field]=val;
+  renderPurchaseRows();
+}
+function updPRowPay(id,field,val){
+  const r=_purchaseRows.find(x=>x.id===id);
+  if(!r) return;
+  r[field]=parseFloat(val)||0;
+  // Sync legacy paid field = sum of all methods
+  r.paid=(r.paidInHand||0)+(r.paidBank||0)+(r.paidGPay||0)+(r.paidPhonePe||0);
   renderPurchaseRows();
 }
 function delPRow(id){
@@ -2347,9 +2563,13 @@ function saveComp(){
   if(!name){toast('Company name required','err');return;}
   const desc=document.getElementById('cmpDesc').value.trim();
   const records=_purchaseRows.map(r=>({
-    id:r.id,date:r.date,
+    id:r.id, date:r.date,
     amount:parseFloat(r.amount)||0,
     paid:parseFloat(r.paid)||0,
+    paidInHand:parseFloat(r.paidInHand)||0,
+    paidBank:parseFloat(r.paidBank)||0,
+    paidGPay:parseFloat(r.paidGPay)||0,
+    paidPhonePe:parseFloat(r.paidPhonePe)||0,
     note:r.note||''
   }));
   const totPurch=records.reduce((a,r)=>a+r.amount,0);
