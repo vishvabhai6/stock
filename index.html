@@ -1559,9 +1559,13 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   <div class="modal wide">
     <div class="modal-title"><span id="mSellTitle">New Sale</span><button class="modal-x" onclick="closeM('mSell')">✕</button></div>
     <div class="fg ac-wrap">
-      <label>Shop / Customer Name</label>
+      <label>Shop / Customer Name (To)</label>
       <input type="text" id="shopNameInp" placeholder="Type shop name…" oninput="shopAC()" autocomplete="off">
       <div class="ac-list" id="shopSugg" style="display:none"></div>
+    </div>
+    <div class="form-2col">
+      <div class="fg"><label>Handled By</label><input type="text" id="billHandledBy" placeholder="e.g. P.Vishva" autocomplete="off"></div>
+      <div class="fg"><label>Contact Number</label><input type="text" id="billContact" placeholder="e.g. 9944966353" autocomplete="off"></div>
     </div>
     <div class="fg"><label>Sale Date</label><input type="date" id="saleDate"></div>
     <div id="prevBalBanner" style="display:none;margin-bottom:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:12px;padding:11px 14px">
@@ -1570,7 +1574,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px">
       <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Products</div>
-      <button class="btn btn-ghost btn-sm" onclick="addSellRow()">＋ Row</button>
+      <button class="btn btn-ghost btn-sm" onclick="addSellRow()">＋ Add Product</button>
     </div>
     <div id="sellRows"></div>
     <div class="fg" style="margin-top:12px">
@@ -1605,17 +1609,43 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
 <!-- Old Bill Entry modal -->
 <div class="modal-ov" id="mOldBill">
-  <div class="modal">
+  <div class="modal wide">
     <div class="modal-title"><span>📋 Add Old Bill</span><button class="modal-x" onclick="closeM('mOldBill')">✕</button></div>
-    <p style="font-size:.82rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Enter a previous unpaid bill amount for this customer. It will be carried forward and added to their next new purchase.</p>
+    <p style="font-size:.82rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Enter a previous unpaid bill for this customer. You can add individual products or enter a total amount directly.</p>
     <div class="fg ac-wrap">
       <label>Customer Name</label>
       <input type="text" id="obCustomer" placeholder="Type customer name…" oninput="obCustomerAC()" autocomplete="off">
       <div class="ac-list" id="obSugg" style="display:none"></div>
     </div>
     <div class="fg"><label>Bill Date</label><input type="date" id="obDate"></div>
-    <div class="fg"><label>Old Bill Amount (₹)</label><input type="number" id="obAmount" placeholder="e.g. 2000" oninput="updObSummary()"></div>
-    <div class="fg"><label>Amount Already Paid (₹)</label><input type="number" id="obPaid" placeholder="0.00" oninput="updObSummary()"></div>
+
+    <!-- Toggle: Products or Direct Amount -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="pay-opt on" id="obMode-products" onclick="setObMode('products')">📦 Add Products</button>
+      <button class="pay-opt" id="obMode-direct" onclick="setObMode('direct')">💰 Direct Amount</button>
+    </div>
+
+    <!-- Products mode -->
+    <div id="obProductsSection">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Products</div>
+        <button class="btn btn-ghost btn-sm" onclick="addObRow()">＋ Add Product</button>
+      </div>
+      <div id="obRows"></div>
+      <div id="obProductsSummary" style="display:none;margin-top:8px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:12px">
+        <div style="display:flex;justify-content:space-between;font-size:.85rem;font-weight:700">
+          <span>Products Total</span>
+          <span id="obProductsTotal" style="color:var(--accent)">₹0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direct Amount mode -->
+    <div id="obDirectSection" style="display:none">
+      <div class="fg"><label>Old Bill Amount (₹)</label><input type="number" id="obAmount" placeholder="e.g. 2000" oninput="updObSummary()"></div>
+    </div>
+
+    <div class="fg" style="margin-top:10px"><label>Amount Already Paid (₹)</label><input type="number" id="obPaid" placeholder="0.00" oninput="updObSummary()"></div>
     <div id="obSummary" style="display:none;margin-bottom:14px;border-radius:12px;padding:14px;background:var(--glass-bg);border:1px solid var(--glass-border)">
       <div id="obSummaryContent"></div>
     </div>
@@ -3212,6 +3242,8 @@ function openSellModal(eid=null,shopId=null){
   document.getElementById('shopSugg').style.display='none';
   document.getElementById('saleDate').value=today();
   document.getElementById('prevBalBanner').style.display='none';
+  document.getElementById('billHandledBy').value='';
+  document.getElementById('billContact').value='';
   selPayMethod='Cash';
   document.querySelectorAll('#payOpts .pay-opt').forEach((b,i)=>b.classList[i===0?'add':'remove']('on'));
   if(shopId){
@@ -3219,11 +3251,15 @@ function openSellModal(eid=null,shopId=null){
     document.getElementById('shopNameInp').value=sh.name;
     document.getElementById('shopNameInp').disabled=true;
     document.getElementById('shopNameInp').dataset.shopId=shopId;
-    // Show previous balance banner
+    // Pre-fill handled by / contact from last session
     const ls=sh.sessions[sh.sessions.length-1];
-    if(ls&&ls.balance>0){
-      document.getElementById('prevBalBanner').style.display='';
-      document.getElementById('prevBalAmt').textContent=fmt(ls.balance)+' (from '+fmtD(ls.date)+')';
+    if(ls){
+      if(ls.handledBy) document.getElementById('billHandledBy').value=ls.handledBy;
+      if(ls.contact) document.getElementById('billContact').value=ls.contact;
+      if(ls.balance>0){
+        document.getElementById('prevBalBanner').style.display='';
+        document.getElementById('prevBalAmt').textContent=fmt(ls.balance)+' (from '+fmtD(ls.date)+')';
+      }
     }
   }
   addSellRow();
@@ -3244,7 +3280,9 @@ function renderSellRows(){
     <div class="sell-item" id="sr-${r.id}">
       <div class="ac-wrap" style="position:relative">
         <input class="row-inp" type="text" placeholder="Product name…" value="${r.name}"
-          oninput="prodAC(this,'${r.id}')" autocomplete="off" id="pi-${r.id}">
+          oninput="prodAC(this,'${r.id}')"
+          onblur="(()=>{const row=sellRows.find(x=>x.id==='${r.id}');if(row&&this.value.trim())row.name=this.value.trim();})()"
+          autocomplete="off" id="pi-${r.id}">
         <div class="ac-list" id="psu-${r.id}" style="display:none"></div>
         ${priceHint}
       </div>
@@ -3258,9 +3296,12 @@ function renderSellRows(){
 function prodAC(inp,rowId){
   const q=inp.value.toLowerCase();
   const su=document.getElementById('psu-'+rowId);
-  if(!q){su.style.display='none';return;}
+  // Always sync the typed name into the row data
+  const r=sellRows.find(x=>x.id===rowId);
+  if(r){ r.name=inp.value.trim(); if(!inp.value.trim()){r.productId='';} }
+  if(!q){su.style.display='none';updSellSum();return;}
   const m=db.products.filter(p=>p.name.toLowerCase().includes(q)&&p.qty>0);
-  if(!m.length){su.style.display='none';return;}
+  if(!m.length){su.style.display='none';updSellSum();return;}
   su.style.display='';
   su.innerHTML=m.map(p=>`
     <div class="ac-item" onclick="selProdRow('${rowId}','${p.id}')">
@@ -3299,11 +3340,16 @@ function updSellSum(){
     el.style.display='';
     el.className='sell-sum';
     el.innerHTML=`
-      <div class="ss-row"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>
-      ${prev>0?`<div class="ss-row due"><span class="lbl">Previous Balance</span><span class="val">${fmt(prev)}</span></div>`:''}
-      ${prev>0?`<div class="ss-row tot"><span class="lbl">Total Bill</span><span class="val">${fmt(grandTotal)}</span></div>`:''}
-      <div class="ss-row paid"><span class="lbl">Paid Now</span><span class="val">${fmt(paid)}</span></div>
-      <div class="ss-row ${balance>0?'due':'paid'}"><span class="lbl">Balance Due</span><span class="val">${balance>0?fmt(balance):'₹0.00 ✓'}</span></div>
+      <div style="border:1px solid var(--glass-border);border-radius:10px;padding:8px 12px;margin-bottom:6px">
+        <div class="ss-row"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>
+        ${prev>0?`<div class="ss-row due"><span class="lbl">Previous Balance</span><span class="val">${fmt(prev)}</span></div>`:''}
+        ${prev>0?`<div class="ss-row tot"><span class="lbl">Total Bill</span><span class="val">${fmt(grandTotal)}</span></div>`:''}
+        <div class="ss-row paid"><span class="lbl">Paid Now</span><span class="val">${fmt(paid)}</span></div>
+        <div class="ss-row" style="border-top:1px dashed var(--glass-border);padding-top:8px;margin-top:4px">
+          <span class="lbl" style="font-weight:700">Balance Due</span>
+          <span class="val" style="color:${balance>0?'var(--red)':'var(--green)'}">${balance>0?fmt(balance):'₹0.00 ✓'}</span>
+        </div>
+      </div>
     `;
   } else el.style.display='none';
 }
@@ -3340,6 +3386,18 @@ function selPay(btn,m){
 // ══════════════════════════════════════════
 // OLD BILL ENTRY
 // ══════════════════════════════════════════
+let _obMode = 'products';
+let obRows = [];
+
+function setObMode(mode){
+  _obMode = mode;
+  document.getElementById('obMode-products').classList[mode==='products'?'add':'remove']('on');
+  document.getElementById('obMode-direct').classList[mode==='direct'?'add':'remove']('on');
+  document.getElementById('obProductsSection').style.display = mode==='products'?'':'none';
+  document.getElementById('obDirectSection').style.display = mode==='direct'?'':'none';
+  updObSummary();
+}
+
 function openOldBillModal(){
   document.getElementById('obCustomer').value='';
   document.getElementById('obCustomer').dataset.shopId='';
@@ -3348,8 +3406,78 @@ function openOldBillModal(){
   document.getElementById('obPaid').value='';
   document.getElementById('obSummary').style.display='none';
   document.getElementById('obSugg').style.display='none';
+  _obMode = 'products';
+  obRows = [];
+  document.getElementById('obMode-products').classList.add('on');
+  document.getElementById('obMode-direct').classList.remove('on');
+  document.getElementById('obProductsSection').style.display = '';
+  document.getElementById('obDirectSection').style.display = 'none';
+  document.getElementById('obProductsSummary').style.display = 'none';
+  addObRow();
   openM('mOldBill');
 }
+function addObRow(){
+  obRows.push({id:uid(), productId:'', name:'', sellPrice:0, qty:1});
+  renderObRows();
+}
+function renderObRows(){
+  document.getElementById('obRows').innerHTML = obRows.map(r=>`
+    <div class="sell-item" id="obr-${r.id}">
+      <div class="ac-wrap" style="position:relative">
+        <input class="row-inp" type="text" placeholder="Product name…" value="${r.name}"
+          oninput="obProdAC(this,'${r.id}')" autocomplete="off" id="obi-${r.id}">
+        <div class="ac-list" id="obpsu-${r.id}" style="display:none"></div>
+      </div>
+      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" min="0"
+        oninput="updObRowPrice('${r.id}',this.value)" id="obsp-${r.id}">
+      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1"
+        oninput="updObRowQty('${r.id}',this.value)">
+      <button class="btn-xs btn-del" onclick="rmObRow('${r.id}')">✕</button>
+    </div>`).join('');
+  updObSummary();
+}
+function obProdAC(inp, rowId){
+  const q = inp.value.toLowerCase();
+  const su = document.getElementById('obpsu-'+rowId);
+  if(!q){su.style.display='none'; return;}
+  const m = db.products.filter(p=>p.name.toLowerCase().includes(q));
+  if(!m.length){
+    // Allow free-text product name
+    const r = obRows.find(x=>x.id===rowId);
+    if(r){ r.name=inp.value; r.productId=''; }
+    su.style.display='none'; updObSummary(); return;
+  }
+  su.style.display='';
+  su.innerHTML = m.map(p=>`
+    <div class="ac-item" onclick="selObProdRow('${rowId}','${p.id}')">
+      <div><span>${p.name}</span><span class="ac-sub"> · Stock: ${p.qty}</span></div>
+      <span class="ac-price">${fmt(p.sell)}</span>
+    </div>`).join('');
+  const r = obRows.find(x=>x.id===rowId);
+  if(r){ r.name=inp.value; r.productId=''; }
+  updObSummary();
+}
+function selObProdRow(rowId, prodId){
+  const p = db.products.find(x=>x.id===prodId);
+  const r = obRows.find(x=>x.id===rowId);
+  if(r){ r.productId=p.id; r.name=p.name; r.sellPrice=p.sell; r.qty=1; }
+  document.getElementById('obpsu-'+rowId).style.display='none';
+  renderObRows();
+  setTimeout(()=>{
+    const el=document.getElementById('obi-'+rowId); if(el) el.value=p.name;
+    const sp=document.getElementById('obsp-'+rowId); if(sp) sp.value=p.sell;
+  },10);
+}
+function updObRowPrice(rowId, v){
+  const r=obRows.find(x=>x.id===rowId); if(r) r.sellPrice=parseFloat(v)||0; updObSummary();
+}
+function updObRowQty(rowId, v){
+  const r=obRows.find(x=>x.id===rowId); if(r) r.qty=parseInt(v)||1; updObSummary();
+}
+function rmObRow(rowId){
+  obRows=obRows.filter(r=>r.id!==rowId); renderObRows();
+}
+
 function obCustomerAC(){
   const q=document.getElementById('obCustomer').value.toLowerCase();
   const su=document.getElementById('obSugg');
@@ -3368,22 +3496,21 @@ function selObCustomer(id,name){
   document.getElementById('obCustomer').value=name;
   document.getElementById('obCustomer').dataset.shopId=id==='__new__'?'':id;
   document.getElementById('obSugg').style.display='none';
-  // Show prev balance if exists
-  if(id && id!=='__new__'){
-    const sh=db.shops.find(x=>x.id===id);
-    if(sh){
-      const ls=sh.sessions[sh.sessions.length-1];
-      if(ls&&ls.balance>0){
-        document.getElementById('obCustomer').placeholder=`Previous balance: ${fmt(ls.balance)}`;
-      }
-    }
-  }
   updObSummary();
 }
 function updObSummary(){
-  const amt=parseFloat(document.getElementById('obAmount').value)||0;
+  let amt = 0;
+  if(_obMode === 'products'){
+    amt = obRows.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+    const ps = document.getElementById('obProductsSummary');
+    if(amt>0){
+      ps.style.display='';
+      document.getElementById('obProductsTotal').textContent = fmt(amt);
+    } else ps.style.display='none';
+  } else {
+    amt = parseFloat(document.getElementById('obAmount').value)||0;
+  }
   const paid=parseFloat(document.getElementById('obPaid').value)||0;
-  // Get existing balance for this shop if selected
   let prevBalance=0;
   const sid=document.getElementById('obCustomer').dataset.shopId;
   if(sid){
@@ -3396,7 +3523,7 @@ function updObSummary(){
   if(amt>0){
     el.style.display='';
     document.getElementById('obSummaryContent').innerHTML=`
-      <div class="ss-row"><span class="lbl">Old Bill Amount</span><span class="val">${fmt(amt)}</span></div>
+      <div class="ss-row"><span class="lbl">Bill Amount</span><span class="val">${fmt(amt)}</span></div>
       ${prevBalance>0?`<div class="ss-row due"><span class="lbl">+ Previous Balance</span><span class="val">${fmt(prevBalance)}</span></div>`:''}
       ${prevBalance>0?`<div class="ss-row tot"><span class="lbl">Grand Total</span><span class="val">${fmt(grandTotal)}</span></div>`:''}
       <div class="ss-row paid"><span class="lbl">Already Paid</span><span class="val">${fmt(paid)}</span></div>
@@ -3407,22 +3534,29 @@ function updObSummary(){
 function saveOldBill(){
   const name=document.getElementById('obCustomer').value.trim();
   if(!name){toast('Enter customer name','err');return;}
-  const amt=parseFloat(document.getElementById('obAmount').value)||0;
-  if(!amt||amt<=0){toast('Enter a valid bill amount','err');return;}
+  let amt=0, items=[];
+  if(_obMode==='products'){
+    const valid = obRows.filter(r=>r.name&&r.qty>0);
+    if(!valid.length){toast('Add at least one product','err');return;}
+    items = valid.map(r=>({productId:r.productId||'',name:r.name,sellPrice:r.sellPrice,qty:r.qty}));
+    amt = valid.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+  } else {
+    amt=parseFloat(document.getElementById('obAmount').value)||0;
+    if(!amt||amt<=0){toast('Enter a valid bill amount','err');return;}
+    items=[];
+  }
   const paid=parseFloat(document.getElementById('obPaid').value)||0;
   const date=document.getElementById('obDate').value||today();
   let sid=document.getElementById('obCustomer').dataset.shopId;
   let shop=sid?db.shops.find(x=>x.id===sid):db.shops.find(x=>x.name.toLowerCase()===name.toLowerCase());
   if(!shop){shop={id:uid(),name,sessions:[]};db.shops.push(shop);}
-  // Carry forward any existing unpaid balance
   const ls=shop.sessions[shop.sessions.length-1];
   const prevBalance=ls?ls.balance:0;
   const grandTotal=amt+prevBalance;
   const bal=Math.max(0,grandTotal-paid);
-  // Store as a session with type='oldbill' — no products, just the amount
   const sess={
     id:uid(), date, type:'oldbill',
-    items:[], newBillTotal:amt,
+    items, newBillTotal:amt,
     total:grandTotal, prevBalance,
     paid, payMethod:'Cash',
     balance:bal,
@@ -3439,16 +3573,29 @@ function saveOldBill(){
 function saveSale(){
   const shopName=document.getElementById('shopNameInp').value.trim();
   if(!shopName){toast('Enter shop name','err');return;}
-  const valid=sellRows.filter(r=>r.productId&&r.qty>0);
+  // Sync any names still only in DOM (not yet blurred/oninput'd)
+  sellRows.forEach(r=>{
+    const el=document.getElementById('pi-'+r.id);
+    if(el&&el.value.trim()&&!r.name) r.name=el.value.trim();
+    const sp=document.getElementById('rsp-'+r.id);
+    if(sp&&sp.value) r.sellPrice=parseFloat(sp.value)||r.sellPrice;
+  });
+  // Valid = has a name (from stock OR free-text) and qty > 0
+  const valid=sellRows.filter(r=>r.name&&r.qty>0);
   if(!valid.length){toast('Add at least one product','err');return;}
+  // Only check stock for rows linked to a stock product
   for(const r of valid){
-    const p=db.products.find(x=>x.id===r.productId);
-    if(!p){toast('Product not found','err');return;}
-    if(p.qty<r.qty){toast('Low stock: '+p.name+' (have '+p.qty+')','err');return;}
+    if(r.productId){
+      const p=db.products.find(x=>x.id===r.productId);
+      if(!p){toast('Product not found: '+r.name,'err');return;}
+      if(p.qty<r.qty){toast('Low stock: '+p.name+' (have '+p.qty+')','err');return;}
+    }
   }
   const newBillTotal=valid.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
   const paid=parseFloat(document.getElementById('amtPaid').value)||0;
   const saleDate=document.getElementById('saleDate').value||today();
+  const handledBy=(document.getElementById('billHandledBy').value||'').trim();
+  const contact=(document.getElementById('billContact').value||'').trim();
   let sid=document.getElementById('shopNameInp').dataset.shopId;
   let shop=sid?db.shops.find(x=>x.id===sid):db.shops.find(x=>x.name.toLowerCase()===shopName.toLowerCase());
   if(!shop){shop={id:uid(),name:shopName,sessions:[]};db.shops.push(shop);}
@@ -3460,6 +3607,8 @@ function saveSale(){
   const sess={
     id:uid(),
     date:saleDate,
+    handledBy,
+    contact,
     items:valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty})),
     newBillTotal,          // just this session's goods value
     total:grandTotal,      // total = newBill + prevBalance (what customer owes total)
@@ -3470,7 +3619,7 @@ function saveSale(){
     payments:paid>0?[{id:uid(),date:saleDate,amount:paid,method:selPayMethod}]:[]
   };
   shop.sessions.push(sess);
-  valid.forEach(r=>{const p=db.products.find(x=>x.id===r.productId);if(p){p.qty-=r.qty;p.sold+=r.qty;}});
+  valid.forEach(r=>{ if(r.productId){const p=db.products.find(x=>x.id===r.productId);if(p){p.qty-=r.qty;p.sold+=r.qty;}} });
   // Low stock warning after sale
   checkLowStockAfterSale(valid);
   toast('Sale recorded! 🎉','ok','pay');
@@ -4239,7 +4388,7 @@ function downloadCSV(rows, filename){
 }
 
 // ══════════════════════════════════════════
-// PRINT INVOICE
+// PRINT INVOICE — Professional B&W
 // ══════════════════════════════════════════
 function printInvoice(shopId, sessId){
   const sh=db.shops.find(x=>x.id===shopId);
@@ -4247,52 +4396,148 @@ function printInvoice(shopId, sessId){
   if(!sess) return;
   const newBill=sess.newBillTotal||sess.total;
   const prevBal=sess.prevBalance||0;
-  const itemRows=sess.items.map(it=>`
+  const handledBy=sess.handledBy||'';
+  const contact=sess.contact||'';
+
+  // Find most recent payment date for stamp
+  let lastPayDate='';
+  if(sess.payments&&sess.payments.length){
+    const sorted=[...sess.payments].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    lastPayDate=sorted[0].date||'';
+  }
+
+  const itemRows=sess.items.map((it,i)=>`
     <tr>
-      <td style="padding:7px 10px;border-bottom:1px solid #eee">${it.name}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right">₹${it.sellPrice.toFixed(2)}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:center">${it.qty}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #eee;text-align:right;font-weight:600">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ddd;font-size:13px">${i+1}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ddd;font-size:13px">${it.name}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;font-size:13px">₹${it.sellPrice.toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:center;font-size:13px">${it.qty}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;font-size:13px;font-weight:600">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
     </tr>`).join('');
-  const win=window.open('','_blank','width=700,height=900');
-  win.document.write(`<!DOCTYPE html><html><head><title>Invoice – ${sh.name}</title>
+
+  const stampHtml = lastPayDate ? `
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);
+      border:3px solid #333;border-radius:8px;padding:14px 24px;opacity:0.18;
+      pointer-events:none;text-align:center;white-space:nowrap">
+      <div style="font-size:22px;font-weight:900;letter-spacing:2px;text-transform:uppercase">PAID</div>
+      <div style="font-size:13px;font-weight:700;margin-top:4px">${fmtD(lastPayDate)}</div>
+    </div>` : '';
+
+  const win=window.open('','_blank','width=780,height=1000');
+  win.document.write(`<!DOCTYPE html><html><head><title>Bill – ${sh.name}</title>
   <style>
-    body{font-family:Arial,sans-serif;padding:40px;color:#111;max-width:680px;margin:0 auto}
-    h1{font-size:1.4rem;margin:0}
-    .meta{font-size:.85rem;color:#555;margin:4px 0}
-    .divider{border:none;border-top:2px solid #222;margin:18px 0}
-    table{width:100%;border-collapse:collapse;margin:12px 0}
-    th{background:#f5f5f5;padding:9px 10px;text-align:left;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px}
-    th:last-child,th:nth-child(3){text-align:right}th:nth-child(3){text-align:center}
-    .total-row{font-weight:700;font-size:1rem}
-    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700}
-    .green{background:#d1fae5;color:#065f46}.red{background:#fee2e2;color:#991b1b}
-    @media print{button{display:none!important}}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Arial',sans-serif;color:#000;background:#fff;padding:0}
+    .page{max-width:740px;margin:0 auto;padding:32px 36px;position:relative}
+    .header-bar{border-bottom:3px double #000;padding-bottom:14px;margin-bottom:16px}
+    .company-name{font-size:24px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
+    .company-sub{font-size:11px;letter-spacing:2px;color:#555;margin-top:2px;text-transform:uppercase}
+    .bill-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;border:1px solid #bbb;border-radius:4px;overflow:hidden}
+    .meta-cell{padding:9px 13px;border-right:1px solid #bbb}
+    .meta-cell:last-child,.meta-cell:nth-child(2){border-right:none}
+    .meta-cell:nth-child(3),.meta-cell:nth-child(4){border-top:1px solid #bbb}
+    .meta-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;margin-bottom:3px}
+    .meta-value{font-size:14px;font-weight:700}
+    .section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#555;margin-bottom:6px;border-bottom:1px solid #ccc;padding-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin:0 0 14px}
+    thead tr{background:#111;color:#fff}
+    th{padding:9px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+    th:nth-child(1){width:32px;text-align:center}
+    th:nth-child(3),th:nth-child(4),th:nth-child(5){text-align:right}
+    th:nth-child(4){text-align:center}
+    tbody tr:nth-child(even){background:#f7f7f7}
+    .totals-table{width:100%;border-collapse:collapse}
+    .totals-table td{padding:7px 12px;font-size:13px}
+    .totals-table tr.grand{background:#111;color:#fff;font-weight:900;font-size:15px}
+    .totals-table tr.subtotal td{border-top:1px solid #999}
+    .footer{margin-top:28px;border-top:1px solid #bbb;padding-top:14px;display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:#555}
+    .sig-line{border-top:1px solid #888;padding-top:4px;margin-top:30px;font-size:11px;color:#555;text-align:center;width:160px}
+    .stamp-wrap{position:relative}
+    @media print{
+      button{display:none!important}
+      body{padding:0}
+      .page{padding:18px 22px}
+    }
   </style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
-      <h1>🏪 Sivasakthi Marketing</h1>
-      <div class="meta">Invoice / Bill Receipt</div>
+  <div class="page">
+    <div class="stamp-wrap">
+      ${stampHtml}
+      <!-- Header -->
+      <div class="header-bar" style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div>
+          <div class="company-name">Sivasakthi Marketing</div>
+          <div class="company-sub">Bill / Invoice Receipt</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px">Bill Date</div>
+          <div style="font-size:16px;font-weight:900">${fmtD(sess.date)}</div>
+        </div>
+      </div>
+
+      <!-- Bill Meta -->
+      <div class="bill-meta">
+        <div class="meta-cell">
+          <div class="meta-label">To (Customer)</div>
+          <div class="meta-value">${sh.name}</div>
+        </div>
+        <div class="meta-cell">
+          <div class="meta-label">Contact</div>
+          <div class="meta-value">${contact||'—'}</div>
+        </div>
+        <div class="meta-cell">
+          <div class="meta-label">Handled By</div>
+          <div class="meta-value">${handledBy||'—'}</div>
+        </div>
+        <div class="meta-cell">
+          <div class="meta-label">Payment Mode</div>
+          <div class="meta-value">${sess.payMethod||'—'}</div>
+        </div>
+      </div>
+
+      <!-- Products Table -->
+      <div class="section-title">Products / Items</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:center">#</th>
+            <th style="text-align:left">Product</th>
+            <th style="text-align:right">Unit Price</th>
+            <th style="text-align:center">Qty</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+
+      <!-- Totals -->
+      <div style="display:flex;justify-content:flex-end">
+        <table class="totals-table" style="width:auto;min-width:280px">
+          <tr><td style="color:#555">New Bill Total</td><td style="text-align:right;font-weight:700">₹${newBill.toFixed(2)}</td></tr>
+          ${prevBal>0?`<tr><td style="color:#555">+ Previous Balance</td><td style="text-align:right;font-weight:700">₹${prevBal.toFixed(2)}</td></tr>
+          <tr class="subtotal"><td style="font-weight:700">Total Bill</td><td style="text-align:right;font-weight:700">₹${sess.total.toFixed(2)}</td></tr>`:''}
+          <tr><td style="color:#555">Paid (${sess.payMethod})</td><td style="text-align:right">₹${sess.paid.toFixed(2)}</td></tr>
+          <tr class="grand">
+            <td style="border-radius:4px 0 0 4px;padding:10px 12px">Balance Due</td>
+            <td style="text-align:right;border-radius:0 4px 4px 0;padding:10px 12px">${sess.balance>0?'₹'+sess.balance.toFixed(2):'SETTLED ✓'}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <div>
+          <div>Sivasakthi Marketing</div>
+          <div style="margin-top:3px;font-size:10px">Thank you for your business</div>
+        </div>
+        <div style="text-align:right">
+          <div class="sig-line">Authorized Signature</div>
+        </div>
+      </div>
     </div>
-    <button onclick="window.print()" style="padding:8px 18px;border:none;background:#e11d48;color:#fff;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700">🖨️ Print</button>
+    <div style="margin-top:18px;text-align:center">
+      <button onclick="window.print()" style="padding:10px 28px;border:2px solid #000;background:#000;color:#fff;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.5px">🖨️ PRINT BILL</button>
+    </div>
   </div>
-  <hr class="divider">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
-    <div><div style="font-size:.72rem;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Customer</div><div style="font-weight:700;font-size:1rem">${sh.name}</div></div>
-    <div style="text-align:right"><div style="font-size:.72rem;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Date</div><div style="font-weight:700">${fmtD(sess.date)}</div></div>
-  </div>
-  <table>
-    <thead><tr><th>Product</th><th style="text-align:right">Price</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
-    <tbody>${itemRows}</tbody>
-    <tfoot>
-      <tr class="total-row"><td colspan="3" style="padding:10px;text-align:right">New Bill</td><td style="padding:10px;text-align:right">₹${newBill.toFixed(2)}</td></tr>
-      ${prevBal>0?`<tr style="color:#dc2626"><td colspan="3" style="padding:5px 10px;text-align:right">+ Previous Balance</td><td style="padding:5px 10px;text-align:right">₹${prevBal.toFixed(2)}</td></tr>
-      <tr class="total-row" style="background:#fef2f2"><td colspan="3" style="padding:10px;text-align:right">Total Bill</td><td style="padding:10px;text-align:right">₹${sess.total.toFixed(2)}</td></tr>`:''}
-      <tr style="color:#16a34a"><td colspan="3" style="padding:5px 10px;text-align:right">Paid (${sess.payMethod})</td><td style="padding:5px 10px;text-align:right">₹${sess.paid.toFixed(2)}</td></tr>
-      <tr class="total-row" style="background:${sess.balance>0?'#fef2f2':'#f0fdf4'}"><td colspan="3" style="padding:10px;text-align:right">Balance Due</td><td style="padding:10px;text-align:right"><span class="badge ${sess.balance>0?'red':'green'}">${sess.balance>0?'₹'+sess.balance.toFixed(2):'Settled ✓'}</span></td></tr>
-    </tfoot>
-  </table>
-  <div style="margin-top:24px;font-size:.78rem;color:#888;text-align:center">Thank you for your business · Sivasakthi Marketing</div>
   </body></html>`);
   win.document.close();
 }
@@ -4548,7 +4793,7 @@ function exportProfitCSV(){
 }
 
 // ══════════════════════════════════════════
-// FEATURE: PDF INVOICE DOWNLOAD
+// FEATURE: PDF INVOICE DOWNLOAD — Professional B&W
 // ══════════════════════════════════════════
 function downloadPDFInvoice(shopId, sessId){
   const sh = db.shops.find(x=>x.id===shopId);
@@ -4566,100 +4811,173 @@ function downloadPDFInvoice(shopId, sessId){
   const doc = new jsPDF({ unit:'mm', format:'a4' });
   const newBill = sess.newBillTotal||sess.total;
   const prevBal = sess.prevBalance||0;
+  const handledBy = sess.handledBy||'—';
+  const contact = sess.contact||'—';
 
-  // Header
-  doc.setFillColor(26,10,18);
-  doc.rect(0,0,210,40,'F');
-  doc.setTextColor(249,168,212);
-  doc.setFontSize(22);
-  doc.setFont('helvetica','bold');
-  doc.text('Sivasakthi Marketing', 14, 18);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(180,120,160);
-  doc.text('Invoice / Bill Receipt', 14, 26);
-  doc.setTextColor(249,168,212);
-  doc.text('Invoice', 170, 15);
-  doc.setFontSize(8);
-  doc.setTextColor(180,120,160);
-  doc.text('Date: '+fmtD(sess.date), 170, 22);
+  // Find most recent payment date for stamp
+  let lastPayDate='';
+  if(sess.payments&&sess.payments.length){
+    const sorted=[...sess.payments].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    lastPayDate=sorted[0].date||'';
+  }
 
-  // Customer info
-  doc.setTextColor(50,20,35);
-  doc.setFontSize(10);
-  doc.setFont('helvetica','bold');
-  doc.text('Bill To:', 14, 52);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(12);
-  doc.setTextColor(26,10,18);
-  doc.text(sh.name, 14, 60);
+  const pageW=210; const margin=14;
 
-  // Divider
-  doc.setDrawColor(236,72,153);
-  doc.setLineWidth(0.5);
-  doc.line(14, 66, 196, 66);
-
-  // Table header
-  let y = 72;
-  doc.setFillColor(240,215,230);
-  doc.rect(14,y-4,182,8,'F');
-  doc.setTextColor(100,30,60);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','bold');
-  doc.text('Product', 16, y);
-  doc.text('Price', 110, y, {align:'right'});
-  doc.text('Qty', 135, y, {align:'right'});
-  doc.text('Amount', 196, y, {align:'right'});
-  y += 8;
-
-  // Items
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(30,10,20);
-  sess.items.forEach((it,i)=>{
-    if(i%2===0){ doc.setFillColor(252,240,248); doc.rect(14,y-4,182,8,'F'); }
-    doc.setFontSize(9);
-    doc.text(it.name.substr(0,35), 16, y);
-    doc.text('Rs.'+it.sellPrice.toFixed(2), 110, y, {align:'right'});
-    doc.text(String(it.qty), 135, y, {align:'right'});
-    doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), 196, y, {align:'right'});
-    y += 9;
-  });
-
-  // Totals
-  y += 4;
-  doc.setDrawColor(200,150,180);
+  // ── Top border lines ──
+  doc.setDrawColor(0); doc.setLineWidth(1.2);
+  doc.line(margin,10,pageW-margin,10);
   doc.setLineWidth(0.3);
-  doc.line(110,y,196,y); y+=6;
+  doc.line(margin,12.5,pageW-margin,12.5);
 
-  const rows2 = [
-    ['New Bill', newBill],
-    ...(prevBal>0?[['Previous Balance', prevBal],['Total Bill', sess.total]]:[] ),
-    ['Paid ('+sess.payMethod+')', sess.paid],
-    ['Balance Due', sess.balance]
-  ];
-  rows2.forEach(([label,val],i)=>{
-    const isFinal = i===rows2.length-1;
-    if(isFinal){
-      doc.setFillColor(sess.balance>0?255:220, sess.balance>0?220:245, sess.balance>0?220:230);
-      doc.rect(110,y-4,86,8,'F');
+  // ── Company Name ──
+  doc.setFont('times','bold');
+  doc.setFontSize(22);
+  doc.setTextColor(0);
+  doc.text('Sivasakthi Marketing', margin, 22);
+
+  // ── Subtitle ──
+  doc.setFont('times','italic');
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text('Bill / Invoice Receipt', margin, 29);
+
+  // ── Date on right ──
+  doc.setFont('times','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0);
+  doc.text('Bill Date:', pageW-margin, 22, {align:'right'});
+  doc.setFont('times','normal');
+  doc.text(fmtD(sess.date), pageW-margin, 28, {align:'right'});
+
+  // ── Divider ──
+  doc.setLineWidth(0.3); doc.setDrawColor(0);
+  doc.line(margin,32,pageW-margin,32);
+
+  // ── Meta box (2x2 grid) ──
+  const mBoxY=35; const mBoxH=22; const colW=(pageW-2*margin)/2;
+  doc.setDrawColor(0); doc.setLineWidth(0.25);
+  doc.rect(margin,mBoxY,pageW-2*margin,mBoxH);
+  doc.line(margin+colW,mBoxY,margin+colW,mBoxY+mBoxH);
+  doc.line(margin,mBoxY+mBoxH/2,pageW-margin,mBoxY+mBoxH/2);
+
+  const metaLabelStyle=()=>{doc.setFont('times','italic');doc.setFontSize(7.5);doc.setTextColor(120);};
+  const metaValStyle=()=>{doc.setFont('times','bold');doc.setFontSize(10);doc.setTextColor(0);};
+
+  // Cell 1: To
+  metaLabelStyle(); doc.text('TO (CUSTOMER)',margin+3,mBoxY+4);
+  metaValStyle(); doc.text(sh.name,margin+3,mBoxY+9);
+  // Cell 2: Contact
+  metaLabelStyle(); doc.text('CONTACT',margin+colW+3,mBoxY+4);
+  metaValStyle(); doc.text(contact,margin+colW+3,mBoxY+9);
+  // Cell 3: Handled By
+  metaLabelStyle(); doc.text('HANDLED BY',margin+3,mBoxY+mBoxH/2+4);
+  metaValStyle(); doc.text(handledBy,margin+3,mBoxY+mBoxH/2+9);
+  // Cell 4: Payment Mode
+  metaLabelStyle(); doc.text('PAYMENT MODE',margin+colW+3,mBoxY+mBoxH/2+4);
+  metaValStyle(); doc.text(sess.payMethod||'—',margin+colW+3,mBoxY+mBoxH/2+9);
+
+  // ── Table header ──
+  let y = mBoxY + mBoxH + 8;
+  doc.setFontSize(7.5); doc.setFont('times','bold');
+  doc.setTextColor(120);
+  doc.text('#', margin+2, y);
+  doc.text('PRODUCT', margin+10, y);
+  doc.text('UNIT PRICE', 130, y, {align:'right'});
+  doc.text('QTY', 152, y, {align:'right'});
+  doc.text('AMOUNT', pageW-margin, y, {align:'right'});
+  y+=2;
+  doc.setLineWidth(0.5); doc.setDrawColor(0);
+  doc.line(margin,y,pageW-margin,y);
+  y+=6;
+
+  // ── Items ──
+  doc.setFont('times','normal'); doc.setFontSize(9.5); doc.setTextColor(0);
+  sess.items.forEach((it,i)=>{
+    if(i%2===1){
+      doc.setFillColor(250,250,250);
+      doc.rect(margin,y-5,pageW-2*margin,7,'F');
     }
-    doc.setFont('helvetica', isFinal?'bold':'normal');
-    doc.setFontSize(isFinal?10:9);
-    doc.setTextColor(isFinal?(sess.balance>0?180:30):80, isFinal?30:50, isFinal?30:50);
-    doc.text(label, 112, y);
-    doc.text('Rs.'+val.toFixed(2), 196, y, {align:'right'});
-    y+=9;
+    doc.text(String(i+1), margin+2, y);
+    doc.text(it.name.substring(0,38), margin+10, y);
+    doc.text('Rs.'+it.sellPrice.toFixed(2), 130, y, {align:'right'});
+    doc.text(String(it.qty), 152, y, {align:'right'});
+    doc.setFont('times','bold');
+    doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), pageW-margin, y, {align:'right'});
+    doc.setFont('times','normal');
+    y+=8;
   });
 
-  // Footer
-  doc.setTextColor(160,100,130);
-  doc.setFontSize(8);
-  doc.setFont('helvetica','italic');
-  doc.text('Thank you for your business · Sivasakthi Marketing', 105, 285, {align:'center'});
+  // ── Totals section ──
+  y += 4;
 
-  doc.save('Invoice-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
-  toast('PDF Invoice downloaded 📄','ok','pay');
+  const tRows=[
+    ['New Bill', newBill],
+    ...(prevBal>0 ? [['+ Previous Balance', prevBal], ['Total Bill', sess.total]] : []),
+    ['Paid ('+sess.payMethod+')', sess.paid],
+  ];
+
+  const rowH   = 8;
+  const padTop = 5;
+  const padBot = 4;
+  const boxX   = 119;
+  const boxW   = pageW - margin - boxX + margin;
+  const boxH   = padTop + tRows.length * rowH + padBot;
+
+  // Draw summary box first (no overlap)
+  doc.setDrawColor(180); doc.setLineWidth(0.3);
+  doc.rect(boxX, y, boxW, boxH, 'S');
+  doc.setDrawColor(0);
+
+  // Write rows inside the box
+  let ry = y + padTop + 3;
+  tRows.forEach(([label, val]) => {
+    doc.setFont('times','normal'); doc.setFontSize(9.5); doc.setTextColor(60);
+    doc.text(label, boxX + 3, ry);
+    doc.setFont('times','bold'); doc.setTextColor(0);
+    doc.text('Rs.'+val.toFixed(2), pageW - margin, ry, {align:'right'});
+    ry += rowH;
+  });
+
+  // ── Balance Due box — sits cleanly below summary box ──
+  y = y + boxH + 3;
+  const balBoxH = 11;
+  doc.setDrawColor(0); doc.setLineWidth(0.5);
+  doc.rect(boxX - 1, y, boxW + 1, balBoxH, 'S');
+  doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(0);
+  doc.text('Balance Due', boxX + 2, y + 7.5);
+  const balText = sess.balance > 0 ? 'Rs.'+sess.balance.toFixed(2) : 'SETTLED';
+  doc.setTextColor(sess.balance > 0 ? 0 : 80);
+  doc.text(balText, pageW - margin, y + 7.5, {align:'right'});
+  doc.setTextColor(0);
+  y += balBoxH + 8;
+
+  // ── PAID stamp if settled ──
+  if(lastPayDate){
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({opacity:0.15}));
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(42);
+    doc.setTextColor(0);
+    const cx=pageW/2, cy=150;
+    doc.text('PAID', cx, cy, {align:'center', angle:330});
+    doc.setFontSize(12);
+    doc.text(fmtD(lastPayDate), cx, cy+12, {align:'center', angle:330});
+    doc.restoreGraphicsState();
+  }
+
+  // ── Footer ──
+  doc.setLineWidth(0.3); doc.setDrawColor(0);
+  doc.line(margin,278,pageW-margin,278);
+  doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
+  doc.text('Sivasakthi Marketing  ·  Thank you for your business', pageW/2, 283, {align:'center'});
+  doc.line(pageW-margin-45,270,pageW-margin,270);
+  doc.setFont('times','normal');
+  doc.text('Authorized Signature', pageW-margin, 274.5, {align:'right'});
+
+  doc.save('Bill-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
+  toast('PDF Bill downloaded 📄','ok','pay');
 }
+
 
 // ══════════════════════════════════════════
 // FEATURE: LOW STOCK WARNING TOAST after sale
