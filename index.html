@@ -774,10 +774,28 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   .nav{display:none!important}
   #userEmailBadge{display:none!important}
 
-  /* ─ Header ─ */
-  .header{padding:0 12px;height:52px}
-  .logo{font-size:1rem}
+  /* ─ Header: compact, no overflow ─ */
+  .header{
+    padding:0 10px;
+    height:52px;
+    gap:6px;
+  }
+  .logo{font-size:.95rem;white-space:nowrap;flex-shrink:0}
   #db-status{display:none!important}
+
+  /* Keep header right-side buttons from overflowing */
+  .header > div:last-child{
+    display:flex!important;
+    align-items:center;
+    gap:4px!important;
+    flex-shrink:0;
+  }
+  .theme-btn{
+    width:34px!important;
+    height:34px!important;
+    font-size:.9rem!important;
+    flex-shrink:0;
+  }
 
   /* ─ Bottom nav bar ─ */
   .mobile-nav{
@@ -789,6 +807,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     -webkit-backdrop-filter:blur(24px) saturate(180%);
     height:60px;
     padding:0;
+    padding-bottom:env(safe-area-inset-bottom, 0px); /* iPhone home bar */
     gap:0;
     box-shadow:0 -4px 20px rgba(0,0,0,.3);
   }
@@ -798,7 +817,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     gap:2px;
     background:none;border:none;cursor:pointer;
     font-family:'Plus Jakarta Sans',sans-serif;
-    font-size:.58rem;font-weight:700;letter-spacing:.3px;
+    font-size:.55rem;font-weight:700;letter-spacing:.2px;
     color:var(--text3);
     padding:0 2px;
     transition:color .18s;
@@ -806,9 +825,10 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     min-width:0;
     border-top:2px solid transparent;
     margin-top:-2px;
+    overflow:hidden;
   }
   .mob-btn .mob-ico{
-    font-size:1.25rem;line-height:1;display:block;
+    font-size:1.2rem;line-height:1;display:block;
     transition:transform .18s;
   }
   .mob-btn.active{
@@ -817,34 +837,45 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   }
   .mob-btn.active .mob-ico{transform:scale(1.1)}
 
-  /* ─ Main content padding ─ */
+  /* ─ Main content padding — clears bottom nav + iPhone home bar ─ */
   .main{
-    padding:12px 12px 72px 12px !important;
+    padding:12px 10px calc(68px + env(safe-area-inset-bottom, 8px)) 10px !important;
   }
 
   /* ─ Stats ─ */
   .stats-row{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
   .stat-card{padding:12px 10px}
-  .stat-value{font-size:1.1rem!important}
-  .stat-label{font-size:.65rem!important}
-  .stat-sub{font-size:.68rem}
+  .stat-value{font-size:1.05rem!important}
+  .stat-label{font-size:.62rem!important}
+  .stat-sub{font-size:.66rem}
 
   /* ─ Company grid ─ */
   .company-grid{grid-template-columns:1fr;gap:10px}
 
-  /* ─ Sell items ─ */
-  .sell-item{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:6px}
+  /* ─ Sell items: stack all columns vertically on narrow screens ─ */
+  .sell-item{
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:auto auto;
+    gap:6px;
+  }
+  /* Make sure the autocomplete product input spans full width */
+  .sell-item > .ac-wrap{grid-column:1/-1}
 
   /* ─ Tables ─ */
-  .table-wrap{font-size:.76rem;border-radius:12px}
-  td{padding:8px 9px}
-  th{padding:9px;font-size:.66rem}
+  .table-wrap{font-size:.76rem;border-radius:12px;-webkit-overflow-scrolling:touch}
+  td{padding:7px 8px}
+  th{padding:8px;font-size:.64rem}
 
-  /* ─ Section header ─ */
-  .sec-hdr{flex-direction:column;align-items:flex-start;gap:8px}
-  .sec-hdr > div:last-child{width:100%}
-  .search-wrap{min-width:0;flex:1;width:100%}
-  .btn{font-size:.79rem;padding:8px 13px}
+  /* ─ Section header: stack vertically, full-width children ─ */
+  .sec-hdr{flex-direction:column;align-items:stretch;gap:8px}
+  .sec-hdr > div:last-child{width:100%;display:flex;flex-wrap:wrap;gap:6px}
+  .search-wrap{min-width:0;flex:1}
+
+  /* Buttons in sec-hdr fill available space nicely */
+  #sellHeaderBtns{flex-wrap:wrap;gap:6px;width:100%}
+  #sellHeaderBtns .btn{flex:1;min-width:80px;justify-content:center;font-size:.76rem;padding:8px 8px}
+
+  .btn{font-size:.78rem;padding:8px 12px;white-space:nowrap}
 
   /* ─ Shop summary ─ */
   #shopSumCard > div{grid-template-columns:1fr 1fr!important;gap:8px!important}
@@ -854,54 +885,118 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
   /* ─ Sessions ─ */
   .sess-hdr{flex-wrap:wrap;gap:6px;padding:10px 12px}
-  .sess-body{padding:10px 12px}
+  .sess-body{padding:10px 10px}
   .session-block{border-radius:12px}
+
+  /* Session header action buttons: prevent overflow */
+  .sess-hdr > div:last-child{
+    display:flex!important;flex-wrap:wrap;gap:4px;
+  }
+  .sess-hdr .btn-xs{width:28px!important;height:28px!important;font-size:.78rem!important}
 
   /* ─ Company pay stats ─ */
   #compPayStats > div:nth-child(2){grid-template-columns:1fr!important}
   #compPayStats > div:nth-child(3){grid-template-columns:1fr!important}
 
-  /* ─ Modals ─ */
-  /* On mobile: overlay scrolls, modal fills width, sticks to top */
+  /* ─ Modals: full-width, overlay scrolls ─ */
   .modal-ov{
     align-items:flex-start !important;
     overflow-y:auto !important;
-    padding:12px 10px 80px 10px !important; /* bottom pad clears mobile nav */
+    padding:10px 8px calc(80px + env(safe-area-inset-bottom, 0px)) 8px !important;
     -webkit-overflow-scrolling:touch;
   }
   .modal{
-    padding:18px 14px !important;
+    padding:16px 13px !important;
     border-radius:18px !important;
-    max-height:none !important;        /* let content grow naturally */
-    overflow-y:visible !important;     /* modal itself doesn't scroll — overlay does */
+    max-height:none !important;
+    overflow-y:visible !important;
     width:100% !important;
-    margin:auto;
+    margin:0 auto;
   }
-  /* Sticky action buttons so they're always visible */
+  .modal-title{font-size:.95rem!important;gap:8px}
+
+  /* Sticky action buttons ─ always visible at bottom of modal */
   .form-acts{
     position:sticky;
     bottom:0;
     background:var(--glass-bg);
     backdrop-filter:blur(16px);
     -webkit-backdrop-filter:blur(16px);
-    padding:12px 0 4px;
-    margin-top:14px;
+    padding:10px 0 4px;
+    margin-top:12px;
     border-top:1px solid var(--glass-border);
     z-index:10;
+    display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;
   }
+  .form-acts .btn{flex-shrink:0}
   .form-2col{grid-template-columns:1fr}
+
+  /* ─ History filter bars: wrap properly ─ */
+  .hist-filter-bar{flex-wrap:wrap;gap:6px;padding:9px 10px}
+  .hist-filter-bar > div[style*="margin-left:auto"]{margin-left:0!important;width:100%}
+  .hist-filter-bar .search-wrap{width:100%}
 
   /* ─ Charts ─ */
   .chart-grid{gap:10px}
-  .chart-card{padding:14px}
+  .chart-card{padding:12px}
   .filter-row{gap:4px;flex-wrap:wrap}
+  .filter-row .date-inp{flex:1;min-width:100px}
+
+  /* ─ Quick stat strips: 2 cols ─ */
+  .qs-strip{grid-template-columns:1fr 1fr!important}
 
   /* ─ Nav ─ */
-  .back-btn{font-size:.8rem;padding:7px 11px}
-  .bread{font-size:.73rem}
+  .back-btn{font-size:.78rem;padding:7px 10px}
+  .bread{font-size:.71rem}
 
   /* ─ Glass card ─ */
-  .glass{padding:14px}
+  .glass{padding:13px}
+
+  /* ─ Toast: prevent overlap with nav ─ */
+  .toast{
+    bottom:calc(68px + env(safe-area-inset-bottom, 8px))!important;
+    right:10px!important;
+    left:10px!important;
+    font-size:.78rem!important;
+  }
+
+  /* ─ Staff banner: above bottom nav ─ */
+  #staffBanner{
+    bottom:calc(68px + env(safe-area-inset-bottom, 4px))!important;
+  }
+
+  /* ─ Notification panel ─ */
+  #notifPanel{
+    top:54px!important;
+    right:8px!important;
+    left:8px!important;
+    width:auto!important;
+    max-width:none!important;
+  }
+
+  /* ─ Autocomplete dropdown: ensure visibility ─ */
+  .ac-list{max-height:180px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+  /* ─ Pay opts: wrap ─ */
+  .pay-opts{gap:5px}
+  .pay-opt{font-size:.76rem;padding:7px 10px}
+
+  /* ─ Sub-nav tab strips: scroll horizontally if needed ─ */
+  .page > div[style*="width:fit-content"]{
+    width:100%!important;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    flex-wrap:nowrap!important;
+  }
+
+  /* ─ Stock tab buttons: no-wrap so they scroll ─ */
+  #sttab-companies,#sttab-stockhist,#sttab-profitreport,#sttab-stockcount,
+  #stab-shops,#stab-txnhist,#stab-delivhist,#stab-collections,
+  #potab-new,#potab-list,
+  #prView-customer,#prView-overall{
+    white-space:nowrap;
+    flex-shrink:0;
+  }
 }
 
 /* ─── HISTORY FILTER BAR ─── */
@@ -1076,13 +1171,13 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
     <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
   </nav>
-  <div style="display:flex;align-items:center;gap:8px">
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;min-width:0">
     <span id="userEmailBadge" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
     <span id="db-status" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap">⏳ Loading…</span>
-    <button class="theme-btn" onclick="installPWA()" id="pwaInstallBtn" title="Install App" style="display:none;font-size:.8rem">📲</button>
-    <button class="theme-btn" onclick="toggleNotifPanel()" id="notifBell" title="Notifications" style="position:relative">🔔<span id="notifBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%"></span></button>
-    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
-    <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem">🚪</button>
+    <button class="theme-btn" onclick="installPWA()" id="pwaInstallBtn" title="Install App" style="display:none;font-size:.8rem;flex-shrink:0">📲</button>
+    <button class="theme-btn" onclick="toggleNotifPanel()" id="notifBell" title="Notifications" style="position:relative;flex-shrink:0">🔔<span id="notifBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%"></span></button>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" style="flex-shrink:0">🌙</button>
+    <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem;flex-shrink:0">🚪</button>
   </div>
 </div>
 
