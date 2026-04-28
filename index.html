@@ -7590,8 +7590,19 @@ function shareOnWhatsApp(shopId, sessId) {
   const sh = db.shops.find(x => x.id === shopId);
   const sess = sh ? sh.sessions.find(s => s.id === sessId) : null;
   if (!sh || !sess) return;
-  const items = (sess.items || []).map(it => `  • ${it.name} × ${it.qty} = ${fmt(it.sellPrice * it.qty)}`).join('\n');
-  const msg = `*Sivasakthi Marketing*\n\nBill for: *${sh.name}*\nDate: ${fmtD(sess.date)}\n\n${items}\n\n*Total: ${fmt(sess.newBillTotal || sess.total)}*\nPaid: ${fmt(sess.paid)}\nBalance: ${fmt(sess.balance)}\n\nThank you for your business! 🙏`;
+  const items = (sess.items || []).map(it => `  • ${it.name} (${fmt(it.sellPrice)}) × ${it.qty} = ${fmt(it.sellPrice * it.qty)}`).join('\n');
+
+  // Calculate current bill amount (excluding previous balance)
+  const prevBal = sess.prevBalance || 0;
+  const currentBill = sess.newBillTotal !== undefined ? sess.newBillTotal : (prevBal > 0 ? sess.total - prevBal : sess.total);
+  const grandTotal = sess.total; // total already includes prevBalance
+
+  // Build previous balance line if applicable
+  const prevBalLine = prevBal > 0
+    ? `\nPrevious Balance: ${fmt(prevBal)}\n*Grand Total: ${fmt(grandTotal)}*`
+    : `\n*Total: ${fmt(currentBill)}*`;
+
+  const msg = `*Sivasakthi Marketing*\n\nBill for: *${sh.name}*\nDate: ${fmtD(sess.date)}\n\n${items}\n\nCurrent Bill: ${fmt(currentBill)}${prevBalLine}\nPaid: ${fmt(sess.paid)}\nBalance Due: ${fmt(sess.balance)}\n\nThank you for your business! 🙏`;
   const encoded = encodeURIComponent(msg);
   const contact = sess.contact ? sess.contact.replace(/\D/g, '') : '';
   const url = contact ? `https://wa.me/91${contact}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
