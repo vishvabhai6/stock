@@ -6331,9 +6331,37 @@ function downloadPDFInvoice(shopId, sessId){
   doc.line(margin,y,pageW-margin,y);
   y+=6;
 
-  // ── Items ──
+  // ── Items — split across pages if > 15 products ──
+  const ITEMS_PER_PAGE = 20;
+  const allItems = sess.items;
+  const needsPage2 = allItems.length > ITEMS_PER_PAGE;
+  const page1Items = needsPage2 ? allItems.slice(0, ITEMS_PER_PAGE) : allItems;
+  const page2Items = needsPage2 ? allItems.slice(ITEMS_PER_PAGE) : [];
+
+  // Helper to draw a page footer (no signature — used for page 1 when overflow)
+  function drawContinuedFooter(){
+    doc.setLineWidth(0.3); doc.setDrawColor(0);
+    doc.line(margin,285,pageW-margin,285);
+    doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
+    doc.text('Sivasakthi Marketing  ·  Continued on next page…', pageW/2, 290, {align:'center'});
+  }
+
+  // Helper to draw the table header (reused on page 2)
+  function drawTableHeader(yPos){
+    doc.setFontSize(7.5); doc.setFont('times','bold'); doc.setTextColor(120);
+    doc.text('#', margin+2, yPos);
+    doc.text('PRODUCT', margin+10, yPos);
+    doc.text('UNIT PRICE', 130, yPos, {align:'right'});
+    doc.text('QTY', 152, yPos, {align:'right'});
+    doc.text('AMOUNT', pageW-margin, yPos, {align:'right'});
+    yPos+=2;
+    doc.setLineWidth(0.5); doc.setDrawColor(0);
+    doc.line(margin,yPos,pageW-margin,yPos);
+    return yPos+6;
+  }
+
   doc.setFont('times','normal'); doc.setFontSize(9.5); doc.setTextColor(0);
-  sess.items.forEach((it,i)=>{
+  page1Items.forEach((it,i)=>{
     if(i%2===1){
       doc.setFillColor(250,250,250);
       doc.rect(margin,y-5,pageW-2*margin,7,'F');
@@ -6347,6 +6375,43 @@ function downloadPDFInvoice(shopId, sessId){
     doc.setFont('times','normal');
     y+=8;
   });
+
+  // ── If overflow: draw "continued" footer on page 1 and start page 2 ──
+  if(needsPage2){
+    drawContinuedFooter();
+    doc.addPage();
+
+    // Page 2 header
+    doc.setDrawColor(0); doc.setLineWidth(1.2);
+    doc.line(margin,10,pageW-margin,10);
+    doc.setLineWidth(0.3); doc.line(margin,12.5,pageW-margin,12.5);
+    doc.setFont('times','bold'); doc.setFontSize(18); doc.setTextColor(0);
+    doc.text('Sivasakthi Marketing', margin, 21);
+    doc.setFont('times','italic'); doc.setFontSize(8.5); doc.setTextColor(100);
+    doc.text('Bill / Invoice Receipt  ·  Continued ('+sh.name+'  —  '+fmtD(sess.date)+')', margin, 28);
+    doc.setLineWidth(0.3); doc.setDrawColor(0);
+    doc.line(margin,31,pageW-margin,31);
+
+    // Page 2 table header
+    y = drawTableHeader(36);
+
+    doc.setFont('times','normal'); doc.setFontSize(9.5); doc.setTextColor(0);
+    page2Items.forEach((it,i)=>{
+      const globalIdx = ITEMS_PER_PAGE + i;
+      if(i%2===1){
+        doc.setFillColor(250,250,250);
+        doc.rect(margin,y-5,pageW-2*margin,7,'F');
+      }
+      doc.text(String(globalIdx+1), margin+2, y);
+      doc.text(it.name.substring(0,38), margin+10, y);
+      doc.text('Rs.'+it.sellPrice.toFixed(2), 130, y, {align:'right'});
+      doc.text(String(it.qty), 152, y, {align:'right'});
+      doc.setFont('times','bold');
+      doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), pageW-margin, y, {align:'right'});
+      doc.setFont('times','normal');
+      y+=8;
+    });
+  }
 
   // ── Totals section ──
   y += 4;
@@ -6401,21 +6466,21 @@ function downloadPDFInvoice(shopId, sessId){
   doc.setTextColor(0);
   y += balBoxH + 8;
 
-  // ── PAID stamp if settled ──
+  // ── PAID stamp if settled (always on the last page) ──
   if(lastPayDate){
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({opacity:0.15}));
     doc.setFont('helvetica','bold');
     doc.setFontSize(42);
     doc.setTextColor(0);
-    const cx=pageW/2, cy=150;
+    const cx=pageW/2, cy=needsPage2?150:150;
     doc.text('PAID', cx, cy, {align:'center', angle:330});
     doc.setFontSize(12);
     doc.text(fmtD(lastPayDate), cx, cy+12, {align:'center', angle:330});
     doc.restoreGraphicsState();
   }
 
-  // ── Footer ──
+  // ── Footer with signature (always on last page) ──
   doc.setLineWidth(0.3); doc.setDrawColor(0);
   doc.line(margin,278,pageW-margin,278);
   doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
