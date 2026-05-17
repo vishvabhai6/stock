@@ -172,9 +172,14 @@ function installPWA(){
 #returnDmgInfoPanel { transition: all .25s ease; }
 .detail-btns-mobile { display: none; }
 .detail-btns-desktop { display: flex; gap: 8px; flex-wrap: wrap; }
+.hdr-mobile-only  { display: none; }
+.hdr-desktop-only { display: inline-flex; }
 @media (max-width: 600px) {
   .detail-btns-desktop { display: none !important; }
   .detail-btns-mobile { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Mobile: hide desktop-only header buttons, show mobile-only */
+  .hdr-desktop-only { display: none !important; }
+  .hdr-mobile-only  { display: inline-flex !important; }
 }
 .disc-type-btn { border-radius:0; padding:8px 14px; font-size:.8rem; }
 /* ─── TOKENS ─── */
@@ -263,13 +268,8 @@ body {
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border-bottom:1px solid var(--glass-border);
   padding:0 20px;
-}
-.header-inner{
   display:flex;align-items:center;justify-content:space-between;
-  gap:12px;height:60px;
-}
-.header-right{
-  display:flex;align-items:center;gap:6px;flex-shrink:0;
+  gap:10px;height:60px;
 }
 .logo{
   font-family:'Clash Display',sans-serif;
@@ -287,12 +287,12 @@ body {
   display:flex;gap:2px;
   background:var(--glass-bg);
   border:1px solid var(--glass-border);
-  border-radius:14px;padding:3px;
+  border-radius:12px;padding:3px;
   backdrop-filter:blur(10px);
-  flex-shrink:1;min-width:0;overflow:hidden;
+  flex-shrink:1;
 }
 .nav-btn{
-  padding:7px 13px;border-radius:10px;border:none;
+  padding:6px 12px;border-radius:10px;border:none;
   background:transparent;color:var(--text2);
   font-family:'Plus Jakarta Sans',sans-serif;
   font-size:.78rem;font-weight:600;cursor:pointer;
@@ -1186,28 +1186,23 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 </div>
 
 <div class="header" style="display:none">
-  <div class="header-inner">
-    <!-- Left: logo -->
-    <div class="logo" style="flex-shrink:0">Sivasakthi <span>Marketing</span></div>
-    <!-- Centre: nav -->
-    <nav class="nav">
-      <button class="nav-btn active" onclick="showPage('dashboard')">📊 Dashboard</button>
-      <button class="nav-btn" onclick="showPage('stock')">📦 Stock</button>
-      <button class="nav-btn" onclick="showPage('sell')">🛒 Sell</button>
-      <button class="nav-btn" onclick="showPage('preorder')">📋 Pre-Order</button>
-      <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
-      <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
-      <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
-    </nav>
-    <!-- Right: status + icons -->
-    <div class="header-right">
-      <span id="userEmailBadge" style="font-size:.68rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:3px 9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
-      <span id="db-status" style="font-size:.68rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:3px 9px;white-space:nowrap">⏳ Loading…</span>
-      <button class="theme-btn" onclick="installPWA()" id="pwaInstallBtn" title="Install App" style="display:none;font-size:.8rem;flex-shrink:0">📲</button>
-      <button class="theme-btn" onclick="toggleNotifPanel()" id="notifBell" title="Notifications" style="position:relative;flex-shrink:0">🔔<span id="notifBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%"></span></button>
-      <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" style="flex-shrink:0">🌙</button>
-      <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem;flex-shrink:0">🚪</button>
-    </div>
+  <div class="logo">Sivasakthi <span>Marketing</span></div>
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showPage('dashboard')">📊 Dashboard</button>
+    <button class="nav-btn" onclick="showPage('stock')">📦 Stock</button>
+    <button class="nav-btn" onclick="showPage('sell')">🛒 Sell</button>
+    <button class="nav-btn" onclick="showPage('preorder')">📋 Pre-Order</button>
+    <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
+    <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
+    <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
+  </nav>
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;min-width:0">
+    <span id="userEmailBadge" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
+    <span id="db-status" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap">⏳ Loading…</span>
+    <button class="theme-btn" onclick="installPWA()" id="pwaInstallBtn" title="Install App" style="display:none;font-size:.8rem;flex-shrink:0">📲</button>
+    <button class="theme-btn" onclick="toggleNotifPanel()" id="notifBell" title="Notifications" style="position:relative;flex-shrink:0">🔔<span id="notifBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%"></span></button>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" style="flex-shrink:0">🌙</button>
+    <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem;flex-shrink:0">🚪</button>
   </div>
 </div>
 
@@ -1469,8 +1464,11 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
         <div style="display:flex;gap:8px;flex-wrap:wrap" id="sellHeaderBtns">
           <button class="btn btn-primary" id="newSaleBtn" onclick="openSellModal()">＋ New Sale</button>
           <button class="btn btn-ghost" id="oldBillBtn" onclick="openOldBillModal()" style="white-space:nowrap">📋 Old Bill</button>
-          <button class="btn btn-sm" id="damageBtn" onclick="openDamageModal()" style="background:rgba(251,113,133,.12);color:var(--red);border:1px solid rgba(251,113,133,.3);white-space:nowrap">🔴 Damage</button>
-          <button class="btn btn-sm" onclick="toggleReturnDmgInfo()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ What is Return / Damage?</button>
+          <!-- Desktop only: separate Damage + info buttons -->
+          <button class="btn btn-sm hdr-desktop-only" id="damageBtn" onclick="openDamageModal()" style="background:rgba(251,113,133,.12);color:var(--red);border:1px solid rgba(251,113,133,.3);white-space:nowrap">🔴 Damage</button>
+          <button class="btn btn-sm hdr-desktop-only" onclick="openReturnDmgInfoModal()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ Return / Damage?</button>
+          <!-- Mobile only: single combined button -->
+          <button class="btn btn-sm hdr-mobile-only" onclick="openReturnDmgInfoModal()" style="background:rgba(249,168,212,.1);color:var(--accent);border:1px solid var(--glass-border);white-space:nowrap;font-size:.82rem;font-weight:700">↩️ Return</button>
         </div>
         <!-- Return/Damage info panel -->
         <div id="returnDmgInfoPanel" style="display:none;margin-top:10px;background:rgba(249,168,212,.06);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;line-height:1.7;font-size:.82rem;color:var(--text2)">
@@ -8065,6 +8063,8 @@ window.loadFromFirestore = async function() {
   setTimeout(checkAllNotifications, 1500);
 };
 
+function openReturnDmgInfoModal(){ openM('mReturnDmgInfo'); }
+
 // ══════════════════════════════════════════
 // Show login page immediately
 window.addEventListener('load', function() {
@@ -8073,5 +8073,38 @@ window.addEventListener('load', function() {
   if (cfYear) cfYear.value = new Date().getFullYear();
 });
 </script>
+
+<!-- Return / Damage Info Modal -->
+<div class="modal-ov" id="mReturnDmgInfo" onclick="if(event.target===this)closeM('mReturnDmgInfo')">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-title">
+      <span>Return &amp; Damage — Explained</span>
+      <button class="modal-x" onclick="closeM('mReturnDmgInfo')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;padding-top:6px">
+      <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);border-radius:14px;padding:16px">
+        <div style="font-weight:700;color:var(--warn);font-size:1rem;margin-bottom:8px">↩️ Return</div>
+        <div style="font-size:.84rem;color:var(--text2);line-height:1.7">
+          Customer gives back a product they bought (defective, wrong, or unwanted).<br><br>
+          ✅ Bill amount is <b>reduced</b><br>
+          ✅ Stock is <b>restored</b> back to your inventory
+        </div>
+      </div>
+      <div style="background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.28);border-radius:14px;padding:16px">
+        <div style="font-weight:700;color:var(--red);font-size:1rem;margin-bottom:8px">🔴 Damage</div>
+        <div style="font-size:.84rem;color:var(--text2);line-height:1.7">
+          Your stock gets damaged or lost before reaching the customer.<br><br>
+          ❌ Stock is <b>reduced</b><br>
+          📋 Damage is <b>recorded</b> for tracking<br>
+          🧾 <b>No bill is affected</b>
+        </div>
+        <button class="btn btn-sm" onclick="closeM('mReturnDmgInfo');openDamageModal()" style="margin-top:12px;background:rgba(251,113,133,.15);color:var(--red);border:1px solid rgba(251,113,133,.3);width:100%;justify-content:center">🔴 Report Damage Now</button>
+      </div>
+    </div>
+    <div class="form-acts" style="margin-top:14px;padding-top:14px">
+      <button class="btn btn-primary" onclick="closeM('mReturnDmgInfo')" style="width:100%;justify-content:center">Got it ✓</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
