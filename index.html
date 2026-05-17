@@ -361,7 +361,6 @@ body {
 .stat-card:nth-child(5){animation-delay:.25s}
 .stat-card:nth-child(6){animation-delay:.3s}
 @keyframes cardIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
-@keyframes savePulse{0%,100%{box-shadow:0 4px 16px rgba(236,72,153,0.35)}50%{box-shadow:0 0 0 6px rgba(236,72,153,0.45),0 4px 24px rgba(236,72,153,0.6)}}
 .stat-card:hover{
   transform:translateY(-6px) scale(1.03);
   box-shadow:var(--glass-shadow-h);
@@ -1459,7 +1458,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <button class="btn btn-primary" id="newSaleBtn" onclick="openSellModal()">＋ New Sale</button>
           <button class="btn btn-ghost" id="oldBillBtn" onclick="openOldBillModal()" style="white-space:nowrap">📋 Old Bill</button>
           <button class="btn btn-sm" id="damageBtn" onclick="openDamageModal()" style="background:rgba(251,113,133,.12);color:var(--red);border:1px solid rgba(251,113,133,.3);white-space:nowrap">🔴 Damage</button>
-          <button class="btn btn-sm" onclick="toggleReturnDmgInfo()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ What is Return / Damage?</button>
+          <button class="btn btn-sm" onclick="openReturnDmgInfoModal()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ Return / Damage?</button>
         </div>
         <!-- Return/Damage info panel -->
         <div id="returnDmgInfoPanel" style="display:none;margin-top:10px;background:rgba(249,168,212,.06);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;line-height:1.7;font-size:.82rem;color:var(--text2)">
@@ -1981,14 +1980,14 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
     <!-- Product Photo -->
     <div class="fg" id="pPhotoField" style="margin-bottom:4px">
-      <label>Product Photo <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — upload photo, then click Save button ↓)</span></label>
+      <label>Product Photo <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — saved when you click Save below)</span></label>
       <div style="display:flex;align-items:center;gap:12px">
         <div id="pPhotoPreview" style="width:64px;height:64px;border-radius:12px;border:1px dashed var(--glass-border);background:var(--glass-bg);display:flex;align-items:center;justify-content:center;font-size:1.6rem;overflow:hidden;flex-shrink:0;cursor:pointer" onclick="document.getElementById('pPhotoInput').click()">📦</div>
         <div style="flex:1">
           <input type="file" id="pPhotoInput" accept="image/*" style="display:none" onchange="handleProdPhoto(this)">
           <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('pPhotoInput').click()">📷 Upload Photo</button>
           <button type="button" class="btn btn-ghost btn-sm" id="pPhotoRemoveBtn" onclick="removeProdPhoto()" style="display:none;color:var(--red)">✕ Remove</button>
-          <div style="font-size:.7rem;color:var(--text3);margin-top:4px">JPG, PNG — auto-compressed & saved to cloud</div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:4px">JPG, PNG — stored locally</div>
           <div id="pPhotoReadyInd" style="display:none;font-size:.72rem;color:var(--green);font-weight:700;margin-top:4px"></div>
         </div>
       </div>
@@ -3848,12 +3847,10 @@ function handleProdPhoto(inp){
   const ind = document.getElementById('pPhotoReadyInd');
   const removeBtn = document.getElementById('pPhotoRemoveBtn');
   if (ind) { ind.textContent = '⏳ Processing image…'; ind.style.display = ''; ind.style.color = 'var(--warn)'; }
-
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      // Compress: max 300×300 px, JPEG 72% — keeps base64 well under 60KB (Firestore safe)
       const MAX = 300;
       let w = img.width, h = img.height;
       if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
@@ -3862,26 +3859,14 @@ function handleProdPhoto(inp){
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       _prodPhotoData = canvas.toDataURL('image/jpeg', 0.72);
-
       const prev = document.getElementById('pPhotoPreview');
       prev.innerHTML = `<img src="${_prodPhotoData}" style="width:100%;height:100%;object-fit:cover;border-radius:11px">`;
       if (removeBtn) removeBtn.style.display = '';
-      // Update save button to make it obvious
-      updateSaveBtnForPhoto();
-      if (ind) { ind.textContent = '✅ Photo ready — click the Save button below ↓'; ind.style.display = ''; ind.style.color = 'var(--green)'; }
+      if (ind) { ind.textContent = '✅ Photo ready — click 💾 Save below'; ind.style.display = ''; ind.style.color = 'var(--green)'; }
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
-}
-
-function updateSaveBtnForPhoto(){
-  const btn = document.getElementById('pSaveBtn');
-  if (!btn) return;
-  // Pulse the save button to draw attention
-  btn.style.animation = 'none';
-  btn.offsetHeight; // reflow
-  btn.style.animation = 'savePulse 0.6s ease 3';
 }
 function removeProdPhoto(){
   _prodPhotoData='';
@@ -4019,10 +4004,9 @@ function saveProd(){
       p.priceHistory.push({date,buy,sell,qty:0,note:note||'Price update'});
       toast('Price updated 💹','ok','stock');
     } else {
-      // Restock: add qty, update price
-      // qty=0 is allowed — saves photo + price without changing stock
+      // Restock: qty=0 allowed — saves photo+price without changing stock
       p.buy=buy; p.sell=sell; p.margin=margin;
-      p.photo=_prodPhotoData; // always save photo regardless of qty
+      p.photo=_prodPhotoData;
       if(qty>0){
         p.qty+=qty;
         p.priceHistory.push({date,buy,sell,qty,note});
@@ -4298,7 +4282,7 @@ function renderShops(){
     return `<tr>
       <td><strong style="cursor:pointer;color:var(--accent)" onclick="openShopDetail('${sh.id}')">${sh.name}</strong>
         ${tagHtml}
-        ${loyalty?`<span style="font-size:.68rem;margin-left:5px">${loyalty}</span>`:''}
+
         ${overLimit?`<span style="font-size:.68rem;background:rgba(251,113,133,.15);color:var(--red);border-radius:6px;padding:1px 5px;margin-left:4px">⚠️ Over Limit</span>`:''}
       </td>
       <td>${ld!=='—'?fmtD(ld):'—'}</td>
@@ -4335,7 +4319,7 @@ function filterShops(){
     return `<tr>
       <td><strong style="cursor:pointer;color:var(--accent)" onclick="openShopDetail('${sh.id}')">${sh.name}</strong>
         ${tagHtml}
-        ${loyalty?`<span style="font-size:.68rem;margin-left:5px">${loyalty}</span>`:''}
+
         ${overLimit?`<span style="font-size:.68rem;background:rgba(251,113,133,.15);color:var(--red);border-radius:6px;padding:1px 5px;margin-left:4px">⚠️ Over Limit</span>`:''}
       </td>
       <td>${ld!=='—'?fmtD(ld):'—'}</td>
@@ -5146,7 +5130,7 @@ function openShopDetail(id){
       <div class="stat-card sc-red" style="padding:16px"><div class="stat-label">Balance Due</div><div class="stat-value" style="font-size:1.1rem">${fmt(bal)}</div></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
-      ${getCustomerLoyaltyBadge(sh)?`<span style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:20px;padding:4px 12px;font-size:.78rem;font-weight:700">${getCustomerLoyaltyBadge(sh)} Customer</span>`:''}
+
       ${sh.creditLimit?`<span style="background:rgba(249,168,212,.1);border:1px solid rgba(249,168,212,.25);border-radius:20px;padding:4px 12px;font-size:.78rem;color:var(--accent)">💳 Credit Limit: ${fmt(sh.creditLimit)}</span>`:''}
       ${overLimit?`<span style="background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.3);border-radius:20px;padding:4px 12px;font-size:.78rem;font-weight:700;color:var(--red)">⚠️ Over Credit Limit!</span>`:''}
     </div>
@@ -8072,6 +8056,11 @@ window.loadFromFirestore = async function() {
   setTimeout(checkAllNotifications, 1500);
 };
 
+// ── Return/Damage info modal ──
+function openReturnDmgInfoModal(){
+  openM('mReturnDmgInfo');
+}
+
 // ══════════════════════════════════════════
 // Show login page immediately
 window.addEventListener('load', function() {
@@ -8080,5 +8069,36 @@ window.addEventListener('load', function() {
   if (cfYear) cfYear.value = new Date().getFullYear();
 });
 </script>
+
+<!-- Return / Damage Info Modal -->
+<div class="modal-ov" id="mReturnDmgInfo" onclick="if(event.target===this)closeM('mReturnDmgInfo')">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-title"><span>↩️ Return &amp; 🔴 Damage — What's the difference?</span><button class="modal-x" onclick="closeM('mReturnDmgInfo')">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding-top:4px">
+      <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:16px">
+        <div style="font-weight:700;color:var(--warn);font-size:.95rem;margin-bottom:8px">↩️ Return</div>
+        <div style="font-size:.84rem;color:var(--text2);line-height:1.65">
+          A <b>Return</b> happens when a <b>customer gives back</b> a product they already purchased — because it is defective, wrong, or unwanted.<br><br>
+          When you process a return:<br>
+          • The bill amount is <b style="color:var(--warn)">reduced</b><br>
+          • The stock is <b style="color:var(--green)">restored</b> back to inventory
+        </div>
+      </div>
+      <div style="background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:14px;padding:16px">
+        <div style="font-weight:700;color:var(--red);font-size:.95rem;margin-bottom:8px">🔴 Damage</div>
+        <div style="font-size:.84rem;color:var(--text2);line-height:1.65">
+          A <b>Damage</b> is when a product in <b>your shop stock</b> gets damaged or lost — it never reached the customer.<br><br>
+          When you report damage:<br>
+          • The stock is <b style="color:var(--red)">reduced</b><br>
+          • The damage is <b>recorded</b> for tracking<br>
+          • <b>No bill is affected</b>
+        </div>
+      </div>
+    </div>
+    <div class="form-acts" style="margin-top:14px;padding-top:14px">
+      <button class="btn btn-primary" onclick="closeM('mReturnDmgInfo')">Got it ✓</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
