@@ -159,6 +159,9 @@ function installPWA(){
   };
 </script>
 <style>
+/* ─── EXTRA v23 ─── */
+#returnDmgInfoPanel { transition: all .25s ease; }
+.disc-type-btn { border-radius:0; padding:8px 14px; font-size:.8rem; }
 /* ─── TOKENS ─── */
 :root[data-theme="dark"] {
   --bg-base:       #1a0a12;
@@ -1432,6 +1435,20 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <button class="btn btn-primary" id="newSaleBtn" onclick="openSellModal()">＋ New Sale</button>
           <button class="btn btn-ghost" id="oldBillBtn" onclick="openOldBillModal()" style="white-space:nowrap">📋 Old Bill</button>
           <button class="btn btn-sm" id="damageBtn" onclick="openDamageModal()" style="background:rgba(251,113,133,.12);color:var(--red);border:1px solid rgba(251,113,133,.3);white-space:nowrap">🔴 Damage</button>
+          <button class="btn btn-sm" onclick="toggleReturnDmgInfo()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ What is Return / Damage?</button>
+        </div>
+        <!-- Return/Damage info panel -->
+        <div id="returnDmgInfoPanel" style="display:none;margin-top:10px;background:rgba(249,168,212,.06);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;line-height:1.7;font-size:.82rem;color:var(--text2)">
+          <div style="display:flex;gap:18px;flex-wrap:wrap">
+            <div style="flex:1;min-width:180px">
+              <div style="font-weight:700;color:var(--warn);margin-bottom:4px">↩️ Return</div>
+              <div>A <b>Return</b> happens when a <b>customer gives back</b> a product they already purchased — because it is defective, wrong, or unwanted. When you process a return: the bill amount is <b>reduced</b>, and the stock is <b>restored</b> back to inventory.</div>
+            </div>
+            <div style="flex:1;min-width:180px">
+              <div style="font-weight:700;color:var(--red);margin-bottom:4px">🔴 Damage</div>
+              <div>A <b>Damage</b> is when a product in <b>your shop stock</b> gets damaged or lost — it never reached the customer. When you report damage: the stock is <b>reduced</b>, and the damage is <b>recorded</b> for tracking. No bill is affected.</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1987,6 +2004,22 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
         <button class="pay-opt" onclick="selPay(this,'PhonePe')">📲 PhonePe</button>
       </div>
     </div>
+    <!-- Discount (optional) -->
+    <div class="fg" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:6px">Discount <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — % or ₹)</span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="number" id="discountVal" placeholder="e.g. 5" min="0" oninput="updSellSum()" style="flex:1">
+        <div style="display:flex;border:1px solid var(--glass-border);border-radius:10px;overflow:hidden">
+          <button id="discPct" onclick="setDiscountType('pct',this)" class="pay-opt on" style="border-radius:0;padding:8px 14px;font-size:.8rem">%</button>
+          <button id="discFlat" onclick="setDiscountType('flat',this)" class="pay-opt" style="border-radius:0;padding:8px 14px;font-size:.8rem">₹</button>
+        </div>
+      </div>
+    </div>
+    <!-- Bill Notes (optional) -->
+    <div class="fg" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:6px">Bill Notes <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — shows on bill if entered)</span></label>
+      <textarea id="billNotes" placeholder="e.g. Delivered to shop, handle with care…" rows="2" style="resize:vertical;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:10px;padding:9px 12px;color:var(--text);font-size:.88rem;width:100%;box-sizing:border-box;font-family:inherit"></textarea>
+    </div>
     <div class="fg"><label>Amount Paid Now (₹)</label><input type="number" id="amtPaid" placeholder="0.00" oninput="updSellSum()"></div>
     <div id="sellSum" style="display:none"></div>
     <div class="form-acts">
@@ -2127,6 +2160,20 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       </div>
     </div>
     <div id="apSummary" class="sell-sum" style="display:none"></div>
+    <!-- Partial pay settle option -->
+    <div id="apSettleWrap" style="display:none;margin-top:4px;background:rgba(134,239,172,.07);border:1px solid rgba(134,239,172,.25);border-radius:12px;padding:11px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:.78rem;font-weight:700;color:var(--green)">Mark as Settled?</div>
+          <div style="font-size:.72rem;color:var(--text3);margin-top:2px">If the customer paid less than the full balance, you can write off the remaining small amount and mark this bill as fully settled (Balance Due = ₹0).</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="apSettleChk" onchange="updApSummary()" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer">
+          <span style="font-size:.84rem;font-weight:700;color:var(--green)">Settle Remaining</span>
+        </label>
+      </div>
+      <div id="apWriteOffLine" style="display:none;margin-top:8px;font-size:.78rem;color:var(--text3)"></div>
+    </div>
     <div class="form-acts">
       <button class="btn btn-ghost" onclick="closeM('mAddPay')">Cancel</button>
       <button class="btn btn-primary" onclick="saveAddPay()">Add Payment</button>
@@ -4161,6 +4208,20 @@ function delShop(id){
 // SELL MODAL
 // ══════════════════════════════════════════
 let sellRows=[];
+let _discountType='pct'; // 'pct' or 'flat'
+
+function toggleReturnDmgInfo(){
+  const p=document.getElementById('returnDmgInfoPanel');
+  if(p) p.style.display = p.style.display==='none'?'':'none';
+}
+
+function setDiscountType(type, btn){
+  _discountType=type;
+  document.getElementById('discPct').classList[type==='pct'?'add':'remove']('on');
+  document.getElementById('discFlat').classList[type==='flat'?'add':'remove']('on');
+  updSellSum();
+}
+
 function openSellModal(eid=null,shopId=null){
   sellRows=[];
   document.getElementById('mSellTitle').textContent=shopId?'Add Products to Shop':'New Sale';
@@ -4170,6 +4231,11 @@ function openSellModal(eid=null,shopId=null){
   document.getElementById('amtPaid').value='';
   document.getElementById('sellSum').style.display='none';
   document.getElementById('shopSugg').style.display='none';
+  document.getElementById('discountVal').value='';
+  document.getElementById('billNotes').value='';
+  _discountType='pct';
+  document.getElementById('discPct').classList.add('on');
+  document.getElementById('discFlat').classList.remove('on');
   document.getElementById('saleDate').value=today();
   document.getElementById('prevBalBanner').style.display='none';
   document.getElementById('billHandledBy').value='';
@@ -4258,7 +4324,14 @@ function updRowQty(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.qty=pa
 function rmRow(rowId){sellRows=sellRows.filter(r=>r.id!==rowId);renderSellRows();}
 
 function updSellSum(){
-  const total=sellRows.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+  const subTotal=sellRows.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+  // Discount calculation
+  const dv=parseFloat(document.getElementById('discountVal').value)||0;
+  let discAmt=0;
+  if(dv>0){
+    discAmt = _discountType==='pct' ? (subTotal*(dv/100)) : Math.min(dv,subTotal);
+  }
+  const total=Math.max(0,subTotal-discAmt);
   const paid=parseFloat(document.getElementById('amtPaid').value)||0;
   const sid=document.getElementById('shopNameInp').dataset.shopId;
   let prev=0;
@@ -4266,12 +4339,14 @@ function updSellSum(){
   const grandTotal=total+prev;
   const balance=Math.max(0,grandTotal-paid);
   const el=document.getElementById('sellSum');
-  if(total>0){
+  if(subTotal>0){
     el.style.display='';
     el.className='sell-sum';
     el.innerHTML=`
       <div style="border:1px solid var(--glass-border);border-radius:10px;padding:8px 12px;margin-bottom:6px">
-        <div class="ss-row"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>
+        <div class="ss-row"><span class="lbl">Sub Total</span><span class="val">${fmt(subTotal)}</span></div>
+        ${discAmt>0?`<div class="ss-row" style="color:var(--green)"><span class="lbl">Discount${_discountType==='pct'?' ('+dv+'%)':''}</span><span class="val" style="color:var(--green)">- ${fmt(discAmt)}</span></div>`:''}
+        ${discAmt>0?`<div class="ss-row tot"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>`:`<div class="ss-row tot"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>`}
         ${prev>0?`<div class="ss-row due"><span class="lbl">Previous Balance</span><span class="val">${fmt(prev)}</span></div>`:''}
         ${prev>0?`<div class="ss-row tot"><span class="lbl">Total Bill</span><span class="val">${fmt(grandTotal)}</span></div>`:''}
         <div class="ss-row paid"><span class="lbl">Paid Now</span><span class="val">${fmt(paid)}</span></div>
@@ -4521,7 +4596,13 @@ function saveSale(){
       if(p.qty<r.qty){toast('Low stock: '+p.name+' (have '+p.qty+')','err');return;}
     }
   }
-  const newBillTotal=valid.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+  const subTotal=valid.reduce((a,r)=>a+(r.sellPrice*r.qty),0);
+  const dv=parseFloat(document.getElementById('discountVal').value)||0;
+  let discAmt=0;
+  if(dv>0) discAmt=_discountType==='pct'?(subTotal*(dv/100)):Math.min(dv,subTotal);
+  const newBillTotal=Math.max(0,subTotal-discAmt);
+  const discountInfo=discAmt>0?{value:dv,type:_discountType,amount:discAmt}:null;
+  const billNotes=(document.getElementById('billNotes').value||'').trim();
   const paid=parseFloat(document.getElementById('amtPaid').value)||0;
   const saleDate=document.getElementById('saleDate').value||today();
   const handledBy=(document.getElementById('billHandledBy').value||'').trim();
@@ -4546,6 +4627,8 @@ function saveSale(){
     paid,
     payMethod:selPayMethod,
     balance:newBalance,
+    discount:discountInfo,
+    notes:billNotes||'',
     payments:paid>0?[{id:uid(),date:saleDate,amount:paid,method:selPayMethod}]:[]
   };
   shop.sessions.push(sess);
@@ -4573,6 +4656,8 @@ function openAddPay(shopId,sessId){
   document.getElementById('apDate').value=today();
   document.getElementById('apAmt').value='';
   document.getElementById('apSummary').style.display='none';
+  if(document.getElementById('apSettleChk')) document.getElementById('apSettleChk').checked=false;
+  if(document.getElementById('apSettleWrap')) document.getElementById('apSettleWrap').style.display='none';
   document.getElementById('mAddPayInfo').innerHTML=`
     <div style="background:rgba(255,77,106,.07);border:1px solid rgba(255,77,106,.2);border-radius:12px;padding:12px">
       <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Bill Date: ${fmtD(sess.date)} · Total: ${fmt(sess.total)}</div>
@@ -4590,14 +4675,25 @@ function updApSummary(){
   const sh=db.shops.find(x=>x.id===apTargetShopId);
   const sess=sh.sessions.find(s=>s.id===apTargetSessId);
   const amt=parseFloat(document.getElementById('apAmt').value)||0;
-  const newBal=Math.max(0,sess.balance-amt);
+  const settle=document.getElementById('apSettleChk')&&document.getElementById('apSettleChk').checked;
+  const effectiveBal=settle?0:Math.max(0,sess.balance-amt);
+  const newBal=effectiveBal;
+  const writeOff=settle?Math.max(0,sess.balance-amt):0;
   const el=document.getElementById('apSummary');
+  // Show/hide settle option
+  const sw=document.getElementById('apSettleWrap');
+  const rawBal=Math.max(0,sess.balance-amt);
+  if(sw) sw.style.display=(amt>0&&rawBal>0&&rawBal<sess.balance)?'':'none';
+  const wol=document.getElementById('apWriteOffLine');
+  if(wol&&settle&&writeOff>0) { wol.style.display=''; wol.textContent=`₹${writeOff.toFixed(2)} will be written off and balance will be marked as ₹0.00 (Settled).`; }
+  else if(wol) wol.style.display='none';
   if(amt>0){
     el.style.display='';
     el.innerHTML=`
       <div class="ss-row due"><span class="lbl">Current Balance</span><span class="val">${fmt(sess.balance)}</span></div>
       <div class="ss-row paid"><span class="lbl">Paying Now</span><span class="val">${fmt(amt)}</span></div>
-      <div class="ss-row tot"><span class="lbl">Remaining Balance</span><span class="val ${newBal===0?'paid':'due'}">${newBal===0?'₹0.00 ✓':fmt(newBal)}</span></div>
+      ${settle&&writeOff>0?`<div class="ss-row" style="color:var(--text3);font-size:.8rem"><span class="lbl">Written Off</span><span class="val">- ${fmt(writeOff)}</span></div>`:''}
+      <div class="ss-row tot"><span class="lbl">Remaining Balance</span><span class="val ${newBal===0?'paid':'due'}">${newBal===0?'₹0.00 ✓ Settled':fmt(newBal)}</span></div>
     `;
   } else el.style.display='none';
 }
@@ -4608,9 +4704,20 @@ function saveAddPay(){
   const date=document.getElementById('apDate').value;
   if(!amt||amt<=0){toast('Enter valid amount','err');return;}
   if(amt>sess.balance){toast(`Amount exceeds balance of ${fmt(sess.balance)}`,'err');return;}
+  const settle=document.getElementById('apSettleChk')&&document.getElementById('apSettleChk').checked;
+  const writeOff=settle?Math.max(0,sess.balance-amt):0;
   sess.payments.push({id:uid(),date,amount:amt,method:apPayMethod});
   sess.paid+=amt;
-  sess.balance=Math.max(0,sess.balance-amt);
+  if(settle&&writeOff>0){
+    // Write off the remaining small balance — mark as settled
+    sess.paid+=writeOff;
+    sess.balance=0;
+    sess.settled=true;
+    sess.writeOff=writeOff;
+    toast(`Paid ₹${amt.toFixed(2)} + ₹${writeOff.toFixed(2)} written off — Bill Settled ✓`,'ok','pay');
+  } else {
+    sess.balance=Math.max(0,sess.balance-amt);
+  }
   // Update subsequent sessions' prevBalance chain
   for(let i=sh.sessions.indexOf(sess)+1;i<sh.sessions.length;i++){
     sh.sessions[i].prevBalance=sh.sessions[i-1].balance;
@@ -5714,7 +5821,9 @@ function printInvoice(shopId, sessId){
           <tr class="subtotal"><td style="font-weight:700">Bill After Return</td><td style="text-align:right;font-weight:700">₹${newBill.toFixed(2)}</td></tr>`:''}
           ${prevBal>0?`<tr><td style="color:#555">(+) Previous Balance</td><td style="text-align:right;font-weight:700">₹${prevBal.toFixed(2)}</td></tr>
           <tr class="subtotal"><td style="font-weight:700">Total Bill</td><td style="text-align:right;font-weight:700">₹${sess.total.toFixed(2)}</td></tr>`:''}
+          ${sess.discount&&sess.discount.amount>0?`<tr><td style="color:#555">Sub Total</td><td style="text-align:right">₹${(sess.newBillTotal+(sess.discount?sess.discount.amount:0)).toFixed(2)}</td></tr><tr><td style="color:var(--green)">Discount${sess.discount.type==='pct'?' ('+sess.discount.value+'%)':''}</td><td style="text-align:right;color:var(--green)">- ₹${sess.discount.amount.toFixed(2)}</td></tr>`:''}
           <tr><td style="color:#555">Paid (${sess.payMethod})</td><td style="text-align:right">₹${sess.paid.toFixed(2)}</td></tr>
+          ${sess.notes?`<tr><td colspan="2" style="color:var(--text3);font-size:.78rem;font-style:italic;padding-top:6px">📝 Note: ${sess.notes}</td></tr>`:''}
           <tr class="grand">
             <td style="border-radius:4px 0 0 4px;padding:10px 12px">Balance Due</td>
             <td style="text-align:right;border-radius:0 4px 4px 0;padding:10px 12px">${sess.balance>0?'₹'+sess.balance.toFixed(2):'SETTLED ✓'}</td>
@@ -6332,7 +6441,7 @@ function downloadPDFInvoice(shopId, sessId){
   y+=6;
 
   // ── Items — split across pages if > 15 products ──
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 15;
   const allItems = sess.items;
   const needsPage2 = allItems.length > ITEMS_PER_PAGE;
   const page1Items = needsPage2 ? allItems.slice(0, ITEMS_PER_PAGE) : allItems;
@@ -6419,8 +6528,14 @@ function downloadPDFInvoice(shopId, sessId){
   const totalReturned = (sess.returns||[]).reduce((a,r)=>a+r.amount,0);
   const originalBill  = newBill + totalReturned;  // what was billed before returns
 
+  const disc = sess.discount;
+  const subTotalForPdf = disc ? newBill+disc.amount : newBill;
   const tRows=[
-    ['Total Amount', originalBill],
+    ...(disc&&disc.amount>0 ? [
+      ['Sub Total', subTotalForPdf],
+      ['(-) Discount'+(disc.type==='pct'?' ('+disc.value+'%)':''), disc.amount],
+      ['Bill Total', newBill],
+    ] : [['Total Amount', originalBill]]),
     ...(totalReturned>0 ? [
       ['(-) Return Amount', totalReturned],
       ['Bill After Return', newBill],
@@ -6460,14 +6575,28 @@ function downloadPDFInvoice(shopId, sessId){
   doc.rect(boxX - 1, y, boxW + 1, balBoxH, 'S');
   doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(0);
   doc.text('Balance Due', boxX + 2, y + 7.5);
-  const balText = sess.balance > 0 ? 'Rs.'+sess.balance.toFixed(2) : 'SETTLED';
+  const balText = sess.balance > 0 ? 'Rs.'+sess.balance.toFixed(2) : 'SETTLED ✓';
   doc.setTextColor(sess.balance > 0 ? 0 : 80);
   doc.text(balText, pageW - margin, y + 7.5, {align:'right'});
   doc.setTextColor(0);
   y += balBoxH + 8;
 
+  // ── Bill Notes in PDF ──
+  if(sess.notes&&sess.notes.trim()){
+    const noteY=y;
+    doc.setDrawColor(180); doc.setLineWidth(0.25);
+    doc.setFillColor(250,248,240);
+    doc.rect(margin,noteY,pageW-2*margin,12,'FD');
+    doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
+    doc.text('Note:', margin+3, noteY+5);
+    doc.setFont('times','normal'); doc.setTextColor(0);
+    const noteLines=doc.splitTextToSize(sess.notes, pageW-2*margin-18);
+    doc.text(noteLines, margin+14, noteY+5);
+    y = noteY + 12 + 3;
+  }
+
   // ── PAID stamp if settled (always on the last page) ──
-  if(lastPayDate){
+  if(lastPayDate||sess.settled){
     doc.saveGraphicsState();
     doc.setGState(new doc.GState({opacity:0.15}));
     doc.setFont('helvetica','bold');
