@@ -262,8 +262,14 @@ body {
   backdrop-filter:blur(20px) saturate(160%);
   -webkit-backdrop-filter:blur(20px) saturate(160%);
   border-bottom:1px solid var(--glass-border);
-  padding:0 28px;height:64px;
+  padding:0 20px;
+}
+.header-inner{
   display:flex;align-items:center;justify-content:space-between;
+  gap:12px;height:60px;
+}
+.header-right{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
 }
 .logo{
   font-family:'Clash Display',sans-serif;
@@ -278,17 +284,18 @@ body {
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
 }
 .nav{
-  display:flex;gap:3px;
+  display:flex;gap:2px;
   background:var(--glass-bg);
   border:1px solid var(--glass-border);
-  border-radius:14px;padding:4px;
+  border-radius:14px;padding:3px;
   backdrop-filter:blur(10px);
+  flex-shrink:1;min-width:0;overflow:hidden;
 }
 .nav-btn{
-  padding:8px 20px;border-radius:10px;border:none;
+  padding:7px 13px;border-radius:10px;border:none;
   background:transparent;color:var(--text2);
   font-family:'Plus Jakarta Sans',sans-serif;
-  font-size:.84rem;font-weight:600;cursor:pointer;
+  font-size:.78rem;font-weight:600;cursor:pointer;
   transition:all .25s;white-space:nowrap;
 }
 .nav-btn.active{
@@ -1179,23 +1186,28 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 </div>
 
 <div class="header" style="display:none">
-  <div class="logo">Sivasakthi <span>Marketing</span></div>
-  <nav class="nav">
-    <button class="nav-btn active" onclick="showPage('dashboard')">📊 Dashboard</button>
-    <button class="nav-btn" onclick="showPage('stock')">📦 Stock</button>
-    <button class="nav-btn" onclick="showPage('sell')">🛒 Sell</button>
-    <button class="nav-btn" onclick="showPage('preorder')">📋 Pre-Order</button>
-    <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
-    <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
-    <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
-  </nav>
-  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;min-width:0">
-    <span id="userEmailBadge" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
-    <span id="db-status" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap">⏳ Loading…</span>
-    <button class="theme-btn" onclick="installPWA()" id="pwaInstallBtn" title="Install App" style="display:none;font-size:.8rem;flex-shrink:0">📲</button>
-    <button class="theme-btn" onclick="toggleNotifPanel()" id="notifBell" title="Notifications" style="position:relative;flex-shrink:0">🔔<span id="notifBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%"></span></button>
-    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" style="flex-shrink:0">🌙</button>
-    <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem;flex-shrink:0">🚪</button>
+  <div class="header-inner">
+    <!-- Left: logo -->
+    <div class="logo" style="flex-shrink:0">Sivasakthi <span>Marketing</span></div>
+    <!-- Centre: nav -->
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('dashboard')">📊 Dashboard</button>
+      <button class="nav-btn" onclick="showPage('stock')">📦 Stock</button>
+      <button class="nav-btn" onclick="showPage('sell')">🛒 Sell</button>
+      <button class="nav-btn" onclick="showPage('preorder')">📋 Pre-Order</button>
+      <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
+      <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
+      <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
+    </nav>
+    <!-- Right: status + icons -->
+    <div class="header-right">
+      <span id="userEmailBadge" style="font-size:.68rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:3px 9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
+      <span id="db-status" style="font-size:.68rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:3px 9px;white-space:nowrap">⏳ Loading…</span>
+      <button class="theme-btn" onclick="installPWA()" id="pwaInstallBtn" title="Install App" style="display:none;font-size:.8rem;flex-shrink:0">📲</button>
+      <button class="theme-btn" onclick="toggleNotifPanel()" id="notifBell" title="Notifications" style="position:relative;flex-shrink:0">🔔<span id="notifBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%"></span></button>
+      <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" style="flex-shrink:0">🌙</button>
+      <button class="theme-btn" onclick="doLogout()" title="Sign Out" style="font-size:.85rem;flex-shrink:0">🚪</button>
+    </div>
   </div>
 </div>
 
@@ -1458,7 +1470,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <button class="btn btn-primary" id="newSaleBtn" onclick="openSellModal()">＋ New Sale</button>
           <button class="btn btn-ghost" id="oldBillBtn" onclick="openOldBillModal()" style="white-space:nowrap">📋 Old Bill</button>
           <button class="btn btn-sm" id="damageBtn" onclick="openDamageModal()" style="background:rgba(251,113,133,.12);color:var(--red);border:1px solid rgba(251,113,133,.3);white-space:nowrap">🔴 Damage</button>
-          <button class="btn btn-sm" onclick="openReturnDmgInfoModal()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ Return / Damage?</button>
+          <button class="btn btn-sm" onclick="toggleReturnDmgInfo()" style="background:rgba(249,168,212,.07);color:var(--text3);border:1px solid var(--glass-border);white-space:nowrap;font-size:.72rem">ℹ️ What is Return / Damage?</button>
         </div>
         <!-- Return/Damage info panel -->
         <div id="returnDmgInfoPanel" style="display:none;margin-top:10px;background:rgba(249,168,212,.06);border:1px solid var(--glass-border);border-radius:14px;padding:14px 16px;line-height:1.7;font-size:.82rem;color:var(--text2)">
@@ -3841,18 +3853,16 @@ function setProdEditMode(mode){
 
 // ── Product photo helpers ──
 let _prodPhotoData = ''; // compressed base64 data URL
-
 function handleProdPhoto(inp){
   const file = inp.files[0]; if (!file) return;
   const ind = document.getElementById('pPhotoReadyInd');
   const removeBtn = document.getElementById('pPhotoRemoveBtn');
-  if (ind) { ind.textContent = '⏳ Processing image…'; ind.style.display = ''; ind.style.color = 'var(--warn)'; }
+  if (ind) { ind.textContent = '⏳ Processing…'; ind.style.display = ''; ind.style.color = 'var(--warn)'; }
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      const MAX = 300;
-      let w = img.width, h = img.height;
+      const MAX = 300; let w = img.width, h = img.height;
       if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
       else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
       const canvas = document.createElement('canvas');
@@ -4004,7 +4014,6 @@ function saveProd(){
       p.priceHistory.push({date,buy,sell,qty:0,note:note||'Price update'});
       toast('Price updated 💹','ok','stock');
     } else {
-      // Restock: qty=0 allowed — saves photo+price without changing stock
       p.buy=buy; p.sell=sell; p.margin=margin;
       p.photo=_prodPhotoData;
       if(qty>0){
@@ -8056,11 +8065,6 @@ window.loadFromFirestore = async function() {
   setTimeout(checkAllNotifications, 1500);
 };
 
-// ── Return/Damage info modal ──
-function openReturnDmgInfoModal(){
-  openM('mReturnDmgInfo');
-}
-
 // ══════════════════════════════════════════
 // Show login page immediately
 window.addEventListener('load', function() {
@@ -8069,36 +8073,5 @@ window.addEventListener('load', function() {
   if (cfYear) cfYear.value = new Date().getFullYear();
 });
 </script>
-
-<!-- Return / Damage Info Modal -->
-<div class="modal-ov" id="mReturnDmgInfo" onclick="if(event.target===this)closeM('mReturnDmgInfo')">
-  <div class="modal-box" style="max-width:420px">
-    <div class="modal-title"><span>↩️ Return &amp; 🔴 Damage — What's the difference?</span><button class="modal-x" onclick="closeM('mReturnDmgInfo')">✕</button></div>
-    <div style="display:flex;flex-direction:column;gap:14px;padding-top:4px">
-      <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:16px">
-        <div style="font-weight:700;color:var(--warn);font-size:.95rem;margin-bottom:8px">↩️ Return</div>
-        <div style="font-size:.84rem;color:var(--text2);line-height:1.65">
-          A <b>Return</b> happens when a <b>customer gives back</b> a product they already purchased — because it is defective, wrong, or unwanted.<br><br>
-          When you process a return:<br>
-          • The bill amount is <b style="color:var(--warn)">reduced</b><br>
-          • The stock is <b style="color:var(--green)">restored</b> back to inventory
-        </div>
-      </div>
-      <div style="background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:14px;padding:16px">
-        <div style="font-weight:700;color:var(--red);font-size:.95rem;margin-bottom:8px">🔴 Damage</div>
-        <div style="font-size:.84rem;color:var(--text2);line-height:1.65">
-          A <b>Damage</b> is when a product in <b>your shop stock</b> gets damaged or lost — it never reached the customer.<br><br>
-          When you report damage:<br>
-          • The stock is <b style="color:var(--red)">reduced</b><br>
-          • The damage is <b>recorded</b> for tracking<br>
-          • <b>No bill is affected</b>
-        </div>
-      </div>
-    </div>
-    <div class="form-acts" style="margin-top:14px;padding-top:14px">
-      <button class="btn btn-primary" onclick="closeM('mReturnDmgInfo')">Got it ✓</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
