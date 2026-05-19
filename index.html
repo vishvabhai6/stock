@@ -835,22 +835,28 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     padding-bottom:env(safe-area-inset-bottom, 0px); /* iPhone home bar */
     gap:0;
     box-shadow:0 -4px 20px rgba(0,0,0,.3);
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
   }
+  .mobile-nav::-webkit-scrollbar{display:none}
   .mob-btn{
-    flex:1;
+    flex:0 0 auto;
+    min-width:62px;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:2px;
     background:none;border:none;cursor:pointer;
     font-family:'Plus Jakarta Sans',sans-serif;
     font-size:.55rem;font-weight:700;letter-spacing:.2px;
     color:var(--text3);
-    padding:0 2px;
+    padding:0 4px;
     transition:color .18s;
     -webkit-tap-highlight-color:transparent;
-    min-width:0;
+    overflow:hidden;
     border-top:2px solid transparent;
     margin-top:-2px;
-    overflow:hidden;
+    height:100%;
   }
   .mob-btn .mob-ico{
     font-size:1.2rem;line-height:1;display:block;
@@ -1195,6 +1201,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
     <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
     <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
+    <button class="nav-btn" id="navBackupBtn" onclick="showPage('backup')">💾 Backup</button>
   </nav>
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;min-width:0">
     <span id="userEmailBadge" style="font-size:.7rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:4px 10px;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis;display:none"></span>
@@ -1228,6 +1235,9 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </button>
   <button class="mob-btn" id="mnAnalytics" onclick="showPage('analytics')">
     <span class="mob-ico">📈</span>Analytics
+  </button>
+  <button class="mob-btn" id="mnBackup" onclick="showPage('backup')">
+    <span class="mob-ico">💾</span>Backup
   </button>
 </nav>
 
@@ -1907,6 +1917,74 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
+<!-- ══════════ BACKUP PAGE ══════════ -->
+<div class="page" id="page-backup">
+  <div style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:6px">💾 Backup & Download</div>
+  <div style="font-size:.78rem;color:var(--text3);margin-bottom:22px">Download your full database as a JSON backup file. Keep it safe — you can restore from it anytime.</div>
+
+  <!-- Info banner -->
+  <div style="background:rgba(134,239,172,.07);border:1px solid rgba(134,239,172,.25);border-radius:16px;padding:18px 20px;margin-bottom:22px;display:flex;align-items:flex-start;gap:14px">
+    <span style="font-size:1.5rem;flex-shrink:0">ℹ️</span>
+    <div>
+      <div style="font-weight:700;color:var(--green);margin-bottom:5px">What's included in the backup?</div>
+      <div style="font-size:.82rem;color:var(--text2);line-height:1.7">
+        The backup file contains <strong>all your data</strong>: Companies, Products, Shops &amp; Customers, All Sales Sessions, Payments, Pre-Orders, Staff List, and Activity Logs. It is saved as a <code style="background:rgba(255,255,255,.08);border-radius:5px;padding:1px 6px;font-size:.78rem">.json</code> file that you can store on your phone or computer.
+      </div>
+    </div>
+  </div>
+
+  <!-- Download cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:22px">
+
+    <!-- Full Backup -->
+    <div class="glass" style="padding:22px">
+      <div style="font-size:2rem;margin-bottom:10px">📦</div>
+      <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;margin-bottom:6px">Full Database Backup</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">All data — companies, products, shops, sales, payments, staff, preorders. Best for full restore.</div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="downloadBackup('full')">⬇️ Download Full Backup</button>
+    </div>
+
+    <!-- Sales Only -->
+    <div class="glass" style="padding:22px">
+      <div style="font-size:2rem;margin-bottom:10px">🛒</div>
+      <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;margin-bottom:6px">Sales & Shops Only</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Just shops, customers, sessions, and payments. Useful for accounting or sharing with accountant.</div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;border-color:var(--accent);color:var(--accent)" onclick="downloadBackup('sales')">⬇️ Download Sales Backup</button>
+    </div>
+
+    <!-- Stock Only -->
+    <div class="glass" style="padding:22px">
+      <div style="font-size:2rem;margin-bottom:10px">📦</div>
+      <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;margin-bottom:6px">Stock & Products Only</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Companies and all products with stock levels, price history, and sold counts.</div>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;border-color:var(--green);color:var(--green)" onclick="downloadBackup('stock')">⬇️ Download Stock Backup</button>
+    </div>
+
+  </div>
+
+  <!-- Backup History (timestamped list of downloaded backups in this session) -->
+  <div class="glass" style="margin-bottom:18px">
+    <div class="sec-hdr">
+      <div class="sec-title">📋 Backup History (This Session)</div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('backupLog').innerHTML='<div class=\'empty\'><div class=\'empty-ico\'>📋</div><div style=\'font-size:.8rem\'>No backups yet</div></div>'">Clear Log</button>
+    </div>
+    <div id="backupLog">
+      <div class="empty"><div class="empty-ico">📋</div><div style="font-size:.8rem">No backups downloaded yet this session</div></div>
+    </div>
+  </div>
+
+  <!-- Cloud Snapshot from Firestore -->
+  <div class="glass">
+    <div class="sec-hdr">
+      <div class="sec-title">☁️ Cloud Database Info</div>
+      <button class="btn btn-ghost btn-sm" onclick="loadFromFirestore().then(()=>renderBackupCloudInfo())">🔄 Refresh</button>
+    </div>
+    <div id="backupCloudInfo">
+      <div style="font-size:.82rem;color:var(--text3)">Loading cloud info…</div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <!-- ══════════ MODALS ══════════ -->
@@ -2126,6 +2204,13 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="fg" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:6px">Bill Notes <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — shows on bill if entered)</span></label>
       <textarea id="billNotes" placeholder="e.g. Delivered to shop, handle with care…" rows="2" style="resize:vertical;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:10px;padding:9px 12px;color:var(--text);font-size:.88rem;width:100%;box-sizing:border-box;font-family:inherit"></textarea>
+    </div>
+    <!-- Delivery Charge (optional) -->
+    <div class="fg" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:6px">🚚 Delivery Charge <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — added to bill total)</span></label>
+      <input type="number" id="deliveryCharge" placeholder="e.g. 50" min="0" step="0.01" oninput="updSellSum()"
+        style="background:rgba(59,131,246,.05);border-color:rgba(59,131,246,.25)"
+        oninput="updSellSum();this.style.borderColor=this.value?'rgba(59,131,246,.5)':'rgba(59,131,246,.25)'">
     </div>
     <div class="fg"><label>Amount Paid Now (₹)</label><input type="number" id="amtPaid" placeholder="0.00" oninput="updSellSum()"></div>
     <div id="sellSum" style="display:none"></div>
@@ -2745,9 +2830,10 @@ function showPage(name){
   if(name==='staff') renderStaffTab();
   if(name==='expenses') { renderExpenses(); }
   if(name==='analytics') { renderAnalytics(); }
+  if(name==='backup') { renderBackupCloudInfo(); }
 
   // Update mobile nav highlight for new pages
-  const extMap={expenses:'mnExpenses',analytics:'mnAnalytics'};
+  const extMap={expenses:'mnExpenses',analytics:'mnAnalytics',backup:'mnBackup'};
   if(extMap[name]){const el=document.getElementById(extMap[name]);if(el)el.classList.add('active');}
 
   // Apply global staff restriction badge
@@ -4593,8 +4679,8 @@ function openSellModal(eid=null,shopId=null){
   const _wl=document.getElementById('sellWriteOffLine');if(_wl)_wl.style.display='none';
   document.getElementById('discountVal').value='';
   document.getElementById('billNotes').value='';
-  _discountType='pct';
-  document.getElementById('discPct').classList.add('on');
+  const _dc = document.getElementById('deliveryCharge'); if(_dc){ _dc.value=''; _dc.style.borderColor='rgba(59,131,246,.25)'; }
+  _discountType='pct';  document.getElementById('discPct').classList.add('on');
   document.getElementById('discFlat').classList.remove('on');
   document.getElementById('saleDate').value=today();
   document.getElementById('prevBalBanner').style.display='none';
@@ -4717,7 +4803,10 @@ function updSellSum(){
   if(dv>0){
     discAmt = _discountType==='pct' ? (subTotal*(dv/100)) : Math.min(dv,subTotal);
   }
-  const total=Math.max(0,subTotal-discAmt);
+  const afterDiscount=Math.max(0,subTotal-discAmt);
+  // Delivery charge
+  const delivCharge=parseFloat((document.getElementById('deliveryCharge')||{}).value)||0;
+  const total=afterDiscount+delivCharge;
   const paid=parseFloat(document.getElementById('amtPaid').value)||0;
   const sid=document.getElementById('shopNameInp').dataset.shopId;
   let prev=0;
@@ -4744,6 +4833,7 @@ function updSellSum(){
       <div style="border:1px solid var(--glass-border);border-radius:10px;padding:8px 12px;margin-bottom:6px">
         <div class="ss-row"><span class="lbl">Sub Total</span><span class="val">${fmt(subTotal)}</span></div>
         ${discAmt>0?`<div class="ss-row" style="color:var(--green)"><span class="lbl">Discount${_discountType==='pct'?' ('+dv+'%)':''}</span><span class="val" style="color:var(--green)">- ${fmt(discAmt)}</span></div>`:''}
+        ${delivCharge>0?`<div class="ss-row" style="color:#60a5fa"><span class="lbl">🚚 Delivery Charge</span><span class="val" style="color:#60a5fa">+ ${fmt(delivCharge)}</span></div>`:''}
         <div class="ss-row tot"><span class="lbl">New Bill</span><span class="val">${fmt(total)}</span></div>
         ${prev>0?`<div class="ss-row due"><span class="lbl">Previous Balance</span><span class="val">${fmt(prev)}</span></div>`:''}
         ${prev>0?`<div class="ss-row tot"><span class="lbl">Total Bill</span><span class="val">${fmt(grandTotal)}</span></div>`:''}
@@ -5031,7 +5121,9 @@ function saveSale(){
   const dv=parseFloat(document.getElementById('discountVal').value)||0;
   let discAmt=0;
   if(dv>0) discAmt=_discountType==='pct'?(subTotal*(dv/100)):Math.min(dv,subTotal);
-  const newBillTotal=Math.max(0,subTotal-discAmt);
+  const afterDiscount=Math.max(0,subTotal-discAmt);
+  const deliveryCharge=parseFloat((document.getElementById('deliveryCharge')||{}).value)||0;
+  const newBillTotal=afterDiscount+deliveryCharge;
   const discountInfo=discAmt>0?{value:dv,type:_discountType,amount:discAmt}:null;
   const billNotes=(document.getElementById('billNotes').value||'').trim();
   const paid=parseFloat(document.getElementById('amtPaid').value)||0;
@@ -5070,6 +5162,7 @@ function saveSale(){
     payMethod:selPayMethod,
     balance:finalBalance,
     discount:discountInfo,
+    deliveryCharge:deliveryCharge>0?deliveryCharge:undefined,
     notes:billNotes||'',
     payments:paid>0?[{id:uid(),date:saleDate,amount:paid,method:selPayMethod}]:[]
   };
@@ -5456,6 +5549,10 @@ function openShopDetail(id){
             <tr style="font-weight:700;background:rgba(249,168,212,.06)">
               <td colspan="3" style="color:var(--accent)">Bill After Return</td>
               <td style="text-align:right;color:var(--accent);font-family:'Clash Display',sans-serif">${fmt(newBill)}</td>
+            </tr>`:''}
+            ${sess.deliveryCharge>0?`<tr>
+              <td colspan="3" style="color:#60a5fa;font-size:.82rem">🚚 Delivery Charge</td>
+              <td style="text-align:right;color:#60a5fa;font-weight:600">+${fmt(sess.deliveryCharge)}</td>
             </tr>`:''}
             ${prevBal>0?`<tr>
               <td colspan="3" style="color:var(--red);font-size:.82rem">+ Previous Balance</td>
@@ -6281,6 +6378,7 @@ function printInvoice(shopId, sessId){
           ${prevBal>0?`<tr><td style="color:#555">(+) Previous Balance</td><td style="text-align:right;font-weight:700">₹${prevBal.toFixed(2)}</td></tr>
           <tr class="subtotal"><td style="font-weight:700">Total Bill</td><td style="text-align:right;font-weight:700">₹${sess.total.toFixed(2)}</td></tr>`:''}
           ${sess.discount&&sess.discount.amount>0?`<tr><td style="color:#555">Sub Total</td><td style="text-align:right">₹${(sess.newBillTotal+(sess.discount?sess.discount.amount:0)).toFixed(2)}</td></tr><tr><td style="color:var(--green)">Discount${sess.discount.type==='pct'?' ('+sess.discount.value+'%)':''}</td><td style="text-align:right;color:var(--green)">- ₹${sess.discount.amount.toFixed(2)}</td></tr>`:''}
+          ${sess.deliveryCharge>0?`<tr><td style="color:#2563eb">🚚 Delivery Charge</td><td style="text-align:right;color:#2563eb">+ ₹${sess.deliveryCharge.toFixed(2)}</td></tr>`:''}
           <tr><td style="color:#555">Paid (${sess.payMethod})</td><td style="text-align:right">₹${sess.paid.toFixed(2)}</td></tr>
           ${sess.notes?`<tr><td colspan="2" style="color:var(--text3);font-size:.78rem;font-style:italic;padding-top:6px">📝 Note: ${sess.notes}</td></tr>`:''}
           <tr class="grand">
@@ -6999,6 +7097,7 @@ function downloadPDFInvoice(shopId, sessId){
       ['(-) Return Amount', totalReturned],
       ['Bill After Return', newBill],
     ] : []),
+    ...(sess.deliveryCharge>0 ? [['(+) Delivery Charge', sess.deliveryCharge]] : []),
     ...(prevBal>0 ? [['(+) Previous Balance', prevBal], ['Total Bill', sess.total]] : []),
     ['Paid ('+sess.payMethod+')', sess.paid],
   ];
@@ -8211,6 +8310,125 @@ function clearActivityLog() {
     renderActivityLogUI();
     toast('Activity log cleared', 'ok');
   });
+}
+
+// ══════════════════════════════════════════
+// BACKUP & DOWNLOAD
+// ══════════════════════════════════════════
+function downloadBackup(type) {
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+
+  let data = {};
+  let label = '';
+
+  if (type === 'full') {
+    data = {
+      meta: { type:'full', exportedAt: now.toISOString(), version:'v29', app:'Sivasakthi Marketing' },
+      companies: db.companies,
+      products:  db.products,
+      shops:     db.shops,
+      staffList: db.staffList || [],
+      preorders: db.preorders || [],
+      expenses:  db.expenses || [],
+      activityLog: (window._activityLog||[]).slice(-200)
+    };
+    label = 'full';
+  } else if (type === 'sales') {
+    data = {
+      meta: { type:'sales', exportedAt: now.toISOString(), version:'v29', app:'Sivasakthi Marketing' },
+      shops: db.shops
+    };
+    label = 'sales';
+  } else if (type === 'stock') {
+    data = {
+      meta: { type:'stock', exportedAt: now.toISOString(), version:'v29', app:'Sivasakthi Marketing' },
+      companies: db.companies,
+      products:  db.products
+    };
+    label = 'stock';
+  }
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `sivasakthi_${label}_backup_${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  // Log it
+  const logEl = document.getElementById('backupLog');
+  const entry = document.createElement('div');
+  entry.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--glass-border);font-size:.83rem;gap:10px';
+  const size = (json.length/1024).toFixed(1);
+  const companies = db.companies.length;
+  const products  = db.products.length;
+  const shops     = db.shops.length;
+  const sessions  = db.shops.reduce((a,s)=>a+s.sessions.length,0);
+  entry.innerHTML = `
+    <div>
+      <span style="font-weight:700;color:var(--accent)">💾 ${label.charAt(0).toUpperCase()+label.slice(1)} Backup</span>
+      <span style="color:var(--text3);margin-left:8px;font-size:.75rem">${now.toLocaleTimeString()}</span>
+      <div style="font-size:.72rem;color:var(--text3);margin-top:2px">${companies} companies · ${products} products · ${shops} shops · ${sessions} sessions · ${size} KB</div>
+    </div>
+    <span style="background:rgba(134,239,172,.15);color:var(--green);border-radius:8px;padding:3px 10px;font-size:.72rem;font-weight:700;white-space:nowrap">✓ Downloaded</span>
+  `;
+  if(logEl.querySelector('.empty')) logEl.innerHTML = '';
+  logEl.insertBefore(entry, logEl.firstChild);
+
+  toast(`Backup downloaded ✓ (${size} KB)`, 'ok');
+}
+
+function renderBackupCloudInfo() {
+  const el = document.getElementById('backupCloudInfo');
+  if (!el) return;
+  const companies = db.companies.length;
+  const products  = db.products.length;
+  const shops     = db.shops.length;
+  const sessions  = db.shops.reduce((a,s)=>a+s.sessions.length,0);
+  const items     = db.shops.reduce((a,s)=>a+s.sessions.reduce((b,se)=>b+(se.items?se.items.length:0),0),0);
+  const totalBilled = db.shops.reduce((a,s)=>a+s.sessions.reduce((b,se)=>b+(se.newBillTotal||0),0),0);
+  const totalPaid   = db.shops.reduce((a,s)=>a+s.sessions.reduce((b,se)=>b+(se.paid||0),0),0);
+  const totalDue    = db.shops.reduce((a,s)=>a+s.sessions.reduce((b,se)=>b+(se.balance||0),0),0);
+  const dbStatus = (document.getElementById('db-status')||{}).textContent || '—';
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:14px">
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Companies</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.2rem">${companies}</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Products</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.2rem">${products}</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Shops / Customers</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.2rem">${shops}</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Sessions</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.2rem">${sessions}</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Billed</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;color:var(--accent)">${fmt(totalBilled)}</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Total Collected</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;color:var(--green)">${fmt(totalPaid)}</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px">
+        <div style="font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Balance Due</div>
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;color:var(--red)">${fmt(totalDue)}</div>
+      </div>
+    </div>
+    <div style="font-size:.78rem;color:var(--text3);padding:10px 0;border-top:1px solid var(--glass-border)">Cloud Sync Status: <strong style="color:var(--text)">${dbStatus}</strong></div>
+  `;
 }
 
 function _applyStaffRestrictions() {
