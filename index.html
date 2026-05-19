@@ -1276,6 +1276,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   <!-- Sub-nav tabs -->
   <div style="display:flex;gap:4px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:4px;margin-bottom:16px;backdrop-filter:blur(10px);width:fit-content;flex-wrap:wrap">
     <button class="hf-btn on" id="sttab-companies" onclick="switchStockTab('companies')">🏢 Companies</button>
+    <button class="hf-btn" id="sttab-retailprice" onclick="switchStockTab('retailprice')">🛒 Retail Price</button>
     <button class="hf-btn" id="sttab-stockhist" onclick="switchStockTab('stockhist')">📅 Stock History</button>
     <button class="hf-btn" id="sttab-profitreport" onclick="switchStockTab('profitreport')">📈 Profit Report</button>
     <button class="hf-btn" id="sttab-stockcount" onclick="switchStockTab('stockcount')">📦 Stock Count Delivered</button>
@@ -1315,12 +1316,27 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Product</th><th>Buy Price</th><th>Sell Price</th>
+          <th>Product</th><th>Buy Price</th><th>Sell Price</th><th style="color:#60a5fa">🛒 Retail</th>
           <th>Margin</th><th title="Click the stock number to edit it directly">Stock ✏️</th><th style="color:var(--red)">Damaged</th><th>Last Purchase</th><th>Sold</th><th>Actions</th>
         </tr></thead>
         <tbody id="prodTbody"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Retail Price view -->
+  <div id="sv-retailprice" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div>
+        <div style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:700">🛒 Retail Prices</div>
+        <div style="font-size:.76rem;color:var(--text3);margin-top:2px">Set a special retail price per product — used when billing Retail customers</div>
+      </div>
+      <div class="search-wrap" style="min-width:180px">
+        <span style="color:var(--text3)">🔍</span>
+        <input type="text" placeholder="Search product…" id="retailPriceSearch" oninput="renderRetailPrices()">
+      </div>
+    </div>
+    <div id="retailPriceList"></div>
   </div>
 
   <!-- Stock History view -->
@@ -2009,6 +2025,16 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       <div class="fg"><label>Margin (%)</label><input type="text" id="pMargin" readonly style="opacity:.6;cursor:default"></div>
       <div class="fg" id="pQtyField"><label id="pQtyLabel">Stock Qty</label><input type="number" id="pQty" placeholder="0" min="0"></div>
     </div>
+    <!-- Retail Price field -->
+    <div class="fg" id="pRetailPriceField" style="margin-top:4px">
+      <label style="display:flex;align-items:center;gap:6px">
+        🛒 Retail Price (₹)
+        <span style="font-size:.72rem;color:var(--text3);font-weight:400">(optional — used when billing Retail customers)</span>
+      </label>
+      <input type="number" id="pRetailPrice" placeholder="e.g. leave blank to use Sell price" min="0" step="0.01"
+        style="background:rgba(59,131,246,.05);border-color:rgba(59,131,246,.25)"
+        oninput="this.style.borderColor=this.value?'rgba(59,131,246,.5)':'rgba(59,131,246,.25)'">
+    </div>
     <div class="fg" id="pDateField">
       <label>Purchase Date</label>
       <input type="date" id="pDate">
@@ -2053,6 +2079,20 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       <input type="text" id="shopNameInp" placeholder="Type shop name…" oninput="shopAC()" autocomplete="off">
       <div class="ac-list" id="shopSugg" style="display:none"></div>
     </div>
+    <!-- New customer tag — shown only when typing a name not in the system -->
+    <div id="sellNewCustTagRow" style="display:none;margin-bottom:12px;background:rgba(59,131,246,.06);border:1px solid rgba(59,131,246,.18);border-radius:14px;padding:12px 14px">
+      <div style="font-size:.72rem;font-weight:700;color:#60a5fa;margin-bottom:8px">🆕 New Customer — Set Tag</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="sellNewCustTagOpts">
+        <button type="button" class="shop-tag-btn" data-tag="" onclick="selSellNewTag(this,'')">🚫 None</button>
+        <button type="button" class="shop-tag-btn on" data-tag="Regular" onclick="selSellNewTag(this,'Regular')">⭐ Regular</button>
+        <button type="button" class="shop-tag-btn" data-tag="Wholesale" onclick="selSellNewTag(this,'Wholesale')">📦 Wholesale</button>
+        <button type="button" class="shop-tag-btn" data-tag="Retail" onclick="selSellNewTag(this,'Retail')">🛒 Retail</button>
+        <button type="button" class="shop-tag-btn" data-tag="VIP" onclick="selSellNewTag(this,'VIP')">👑 VIP</button>
+        <button type="button" class="shop-tag-btn" data-tag="New" onclick="selSellNewTag(this,'New')">🆕 New</button>
+      </div>
+    </div>
+    <!-- Existing customer tag badge (read-only) -->
+    <div id="sellExistCustTagRow" style="display:none;margin-bottom:10px"></div>
     <div class="form-2col">
       <div class="fg"><label>Handled By</label><input type="text" id="billHandledBy" placeholder="e.g. P.Vishva" autocomplete="off"></div>
       <div class="fg"><label>Contact Number</label><input type="text" id="billContact" placeholder="e.g. 9944966353" autocomplete="off"></div>
@@ -2068,13 +2108,8 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     </div>
     <div id="sellRows"></div>
     <div class="fg" style="margin-top:12px">
-      <label>Payment Method</label>
-      <div class="pay-opts" id="payOpts">
-        <button class="pay-opt on" onclick="selPay(this,'Cash')">💵 Cash</button>
-        <button class="pay-opt" onclick="selPay(this,'Bank Transfer')">🏦 Bank Transfer</button>
-        <button class="pay-opt" onclick="selPay(this,'GPay')">📱 GPay</button>
-        <button class="pay-opt" onclick="selPay(this,'PhonePe')">📲 PhonePe</button>
-      </div>
+      <label>Customer Number</label>
+      <input type="text" id="billCustomerNumber" placeholder="e.g. 9876543210" autocomplete="off" inputmode="numeric">
     </div>
     <!-- Discount (optional) -->
     <div class="fg" style="margin-top:8px">
@@ -2968,12 +3003,13 @@ function renderRecentTxns(){
 // STOCK — TAB SWITCHING + HISTORY
 // ══════════════════════════════════════════
 function switchStockTab(tab){
-  ['companies','stockhist','profitreport','stockcount'].forEach(t=>{
+  ['companies','retailprice','stockhist','profitreport','stockcount'].forEach(t=>{
     const btn=document.getElementById('sttab-'+t);
     if(btn) btn.classList[t===tab?'add':'remove']('on');
   });
   document.getElementById('sv-companies').style.display    = tab==='companies'?'':'none';
   document.getElementById('sv-products').style.display     = 'none';
+  document.getElementById('sv-retailprice').style.display  = tab==='retailprice'?'':'none';
   document.getElementById('sv-stockhist').style.display    = tab==='stockhist'?'':'none';
   document.getElementById('sv-profitreport').style.display = tab==='profitreport'?'':'none';
   document.getElementById('sv-stockcount').style.display   = tab==='stockcount'?'':'none';
@@ -2981,6 +3017,85 @@ function switchStockTab(tab){
   if(tab==='companies')    renderComps();
   if(tab==='profitreport') renderProfitReport();
   if(tab==='stockcount')   renderStockCount();
+  if(tab==='retailprice')  renderRetailPrices();
+}
+
+// ══════════════════════════════════════════
+// RETAIL PRICE MANAGEMENT
+// ══════════════════════════════════════════
+function renderRetailPrices(){
+  const q = (document.getElementById('retailPriceSearch').value||'').toLowerCase();
+  const cont = document.getElementById('retailPriceList');
+  // All products, optionally filtered
+  let prods = db.products;
+  if(q) prods = prods.filter(p=>p.name.toLowerCase().includes(q));
+  if(!prods.length){
+    cont.innerHTML='<div class="empty"><div class="empty-ico">📦</div><div style="font-size:.8rem">No products found</div></div>';
+    return;
+  }
+  // Group by company
+  const byComp = {};
+  prods.forEach(p=>{
+    const c = db.companies.find(x=>x.id===p.cId);
+    const cname = c?c.name:'Unknown';
+    if(!byComp[cname]) byComp[cname]=[];
+    byComp[cname].push(p);
+  });
+  cont.innerHTML = Object.entries(byComp).map(([cname, cprods])=>`
+    <div class="glass" style="margin-bottom:14px;padding:18px">
+      <div style="font-family:'Clash Display',sans-serif;font-size:.95rem;font-weight:700;color:var(--accent);margin-bottom:12px">🏢 ${cname}</div>
+      <div style="display:grid;gap:8px">
+        ${cprods.map(p=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <div style="font-weight:600;font-size:.88rem">${p.name}</div>
+              <div style="font-size:.71rem;color:var(--text3);margin-top:2px">
+                Buy: <strong style="color:var(--accent)">${fmt(p.buy)}</strong>
+                &nbsp;·&nbsp;
+                Sell: <strong style="color:var(--green)">${fmt(p.sell)}</strong>
+                &nbsp;·&nbsp;
+                Stock: <strong>${p.qty}</strong>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <label style="font-size:.72rem;color:var(--text3);white-space:nowrap">🛒 Retail Price (₹)</label>
+              <input type="number" min="0" step="0.01"
+                id="rp-inp-${p.id}"
+                value="${p.retailPrice||''}"
+                placeholder="e.g. ${Math.round(p.sell*1.05)}"
+                style="width:110px;background:${p.retailPrice?'rgba(59,131,246,.07)':'var(--input-bg)'};border:1px solid ${p.retailPrice?'rgba(59,131,246,.4)':'var(--glass-border)'};border-radius:9px;padding:7px 10px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.88rem;outline:none;text-align:right;transition:border-color .2s"
+                oninput="this.style.borderColor='rgba(59,131,246,.4)';this.style.background='rgba(59,131,246,.07)'"
+                onblur="saveRetailPrice('${p.id}',this.value)">
+              ${p.retailPrice?`<span style="font-size:.7rem;background:rgba(59,131,246,.12);color:#60a5fa;border-radius:7px;padding:2px 7px;white-space:nowrap">✓ Set</span>`:
+              `<span style="font-size:.7rem;color:var(--text3);white-space:nowrap">Not set</span>`}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function saveRetailPrice(prodId, val){
+  const p = db.products.find(x=>x.id===prodId);
+  if(!p) return;
+  const price = parseFloat(val)||0;
+  if(price>0){
+    p.retailPrice = price;
+    toast(`Retail price for "${p.name}" set to ${fmt(price)} ✓`,'ok','stock');
+  } else {
+    delete p.retailPrice;
+    toast(`Retail price for "${p.name}" cleared`,'info');
+  }
+  if(window.saveToFirestore) saveToFirestore();
+  // re-render to update badge
+  renderRetailPrices();
+}
+
+// ── Get sell price based on customer tag ──
+function getEffectiveSellPrice(prod, shopTag){
+  if(shopTag==='Retail' && prod.retailPrice && prod.retailPrice>0) return prod.retailPrice;
+  return prod.sell;
 }
 
 function showComps(){
@@ -3741,6 +3856,7 @@ function renderProds(){
       </td>
       <td>${fmt(p.buy)}</td>
       <td style="color:var(--green);font-weight:700">${fmt(p.sell)} ${trendHtml}</td>
+      <td style="color:#60a5fa;font-weight:700">${p.retailPrice?fmt(p.retailPrice):'<span style="color:var(--text3);font-size:.78rem">—</span>'}</td>
       <td><span class="badge ${mc(p)}">${p.margin.toFixed(1)}%</span></td>
       <td>
         <span class="badge ${p.qty<=5?'bg-red':'bg'}" id="sqbadge-${p.id}" style="cursor:pointer" title="Click to edit stock" onclick="inlineEditStock('${p.id}')">${p.qty}</span>
@@ -3916,7 +4032,7 @@ function openProdModal(id=null, defaultMode='restock'){
   _addAsNew=false;
   _prodEditMode=defaultMode;
   // Reset
-  ['pBuy','pSell','pMargin','pQty','pNote'].forEach(x=>document.getElementById(x).value='');
+  ['pBuy','pSell','pMargin','pQty','pNote','pRetailPrice'].forEach(x=>document.getElementById(x).value='');
   resetProdPhoto(id ? (db.products.find(x=>x.id===id)||{}).photo||'' : '');
   document.getElementById('pDate').value=today();
   document.getElementById('pRestockBanner').style.display='none';
@@ -3947,6 +4063,10 @@ function openProdModal(id=null, defaultMode='restock'){
     calcMargin();
     document.getElementById('pQty').value='';
     document.getElementById('pQtyLabel').textContent='New Stock Qty (adding)';
+    // Load retail price
+    const rpInp = document.getElementById('pRetailPrice');
+    rpInp.value = p.retailPrice || '';
+    rpInp.style.borderColor = p.retailPrice ? 'rgba(59,131,246,.5)' : 'rgba(59,131,246,.25)';
     // Price comparison banner
     const ph=p.priceHistory||[];
     if(ph.length){
@@ -4012,6 +4132,7 @@ function saveProd(){
   const qty=parseInt(document.getElementById('pQty').value)||0;
   const date=document.getElementById('pDate').value||today();
   const note=document.getElementById('pNote').value.trim();
+  const retailPriceVal=parseFloat(document.getElementById('pRetailPrice').value)||0;
   if(!buy||!sell){toast('Enter buy and sell price','err');return;}
   const margin=buy>0?parseFloat(((sell-buy)/buy*100).toFixed(2)):0;
 
@@ -4019,6 +4140,8 @@ function saveProd(){
     const p=db.products.find(x=>x.id===editProdId);
     if(!p.priceHistory) p.priceHistory=[];
     if(!p.batches) p.batches=[];
+    // Save retail price (clear if blank)
+    if(retailPriceVal>0) p.retailPrice=retailPriceVal; else delete p.retailPrice;
     if(_prodEditMode==='updateprice'){
       // Just update price — no stock change
       p.buy=buy; p.sell=sell; p.margin=margin;
@@ -4049,6 +4172,7 @@ function saveProd(){
       priceHistory:[{date,buy,sell,qty,note}],
       batches:[{id:uid(),date,buy,sell,qty,note}]
     };
+    if(retailPriceVal>0) newProd.retailPrice=retailPriceVal;
     db.products.push(newProd);
     toast('Product added 📦','ok','stock');
   }
@@ -4412,6 +4536,24 @@ function delShop(id){
 // SELL MODAL
 // ══════════════════════════════════════════
 let sellRows=[];
+let _sellNewCustTag='Regular'; // default tag for new customers in sell modal
+
+function selSellNewTag(btn, tag){
+  _sellNewCustTag = tag;
+  document.querySelectorAll('#sellNewCustTagOpts .shop-tag-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  // If Retail, show retail price hint in product rows
+  renderSellRows();
+}
+
+function _getSellCustomerTag(){
+  const sid = document.getElementById('shopNameInp').dataset.shopId;
+  if(sid){
+    const sh = db.shops.find(x=>x.id===sid);
+    return sh ? (sh.tag||'') : '';
+  }
+  return _sellNewCustTag;
+}
 let _discountType='pct'; // 'pct' or 'flat'
 
 function toggleReturnDmgInfo(){
@@ -4432,10 +4574,17 @@ function setDiscountType(type, btn){
 
 function openSellModal(eid=null,shopId=null){
   sellRows=[];
+  _sellNewCustTag='Regular';
   document.getElementById('mSellTitle').textContent=shopId?'Add Products to Shop':'New Sale';
   document.getElementById('shopNameInp').value='';
   document.getElementById('shopNameInp').disabled=false;
   document.getElementById('shopNameInp').dataset.shopId='';
+  document.getElementById('sellNewCustTagRow').style.display='none';
+  document.getElementById('sellExistCustTagRow').style.display='none';
+  // reset tag buttons
+  document.querySelectorAll('#sellNewCustTagOpts .shop-tag-btn').forEach(b=>{
+    b.classList[b.dataset.tag==='Regular'?'add':'remove']('on');
+  });
   document.getElementById('amtPaid').value='';
   document.getElementById('sellSum').style.display='none';
   document.getElementById('shopSugg').style.display='none';
@@ -4451,18 +4600,21 @@ function openSellModal(eid=null,shopId=null){
   document.getElementById('prevBalBanner').style.display='none';
   document.getElementById('billHandledBy').value='';
   document.getElementById('billContact').value='';
+  document.getElementById('billCustomerNumber').value='';
   selPayMethod='Cash';
-  document.querySelectorAll('#payOpts .pay-opt').forEach((b,i)=>b.classList[i===0?'add':'remove']('on'));
   if(shopId){
     const sh=db.shops.find(x=>x.id===shopId);
     document.getElementById('shopNameInp').value=sh.name;
     document.getElementById('shopNameInp').disabled=true;
     document.getElementById('shopNameInp').dataset.shopId=shopId;
+    // Show existing tag badge
+    _showExistCustTag(sh);
     // Pre-fill handled by / contact from last session
     const ls=sh.sessions[sh.sessions.length-1];
     if(ls){
       if(ls.handledBy) document.getElementById('billHandledBy').value=ls.handledBy;
       if(ls.contact) document.getElementById('billContact').value=ls.contact;
+      if(ls.customerNumber) document.getElementById('billCustomerNumber').value=ls.customerNumber;
       if(ls.balance>0){
         document.getElementById('prevBalBanner').style.display='';
         document.getElementById('prevBalAmt').textContent=fmt(ls.balance)+' (from '+fmtD(ls.date)+')';
@@ -4479,10 +4631,27 @@ function addSellRow(){
   renderSellRows();
 }
 function renderSellRows(){
+  const custTag = _getSellCustomerTag();
+  const isRetail = custTag === 'Retail';
   document.getElementById('sellRows').innerHTML=sellRows.map(r=>{
     // Find product to show current sell price hint
     const prod = db.products.find(x=>x.id===r.productId);
-    const priceHint = prod ? `<div style="font-size:.68rem;color:var(--text3);margin-top:2px">Current sell: <span style="color:var(--green);font-weight:700">${fmt(prod.sell)}</span>${r.sellPrice!==prod.sell?` · <span style="color:var(--warn)">Modified</span>`:''}</div>` : '';
+    let priceHint = '';
+    if(prod){
+      const basePrice = fmt(prod.sell);
+      const retailPrice = prod.retailPrice ? fmt(prod.retailPrice) : null;
+      if(isRetail && retailPrice){
+        priceHint = `<div style="font-size:.68rem;margin-top:2px">
+          <span style="color:#60a5fa;font-weight:700">🛒 Retail: ${retailPrice}</span>
+          <span style="color:var(--text3)"> · Sell: <span style="color:var(--green)">${basePrice}</span></span>
+          ${r.sellPrice!==prod.retailPrice?`<span style="color:var(--warn)"> · Modified</span>`:''}
+        </div>`;
+      } else if(isRetail && !retailPrice){
+        priceHint = `<div style="font-size:.68rem;color:var(--warn);margin-top:2px">⚠️ No retail price set — using sell price ${basePrice}</div>`;
+      } else {
+        priceHint = `<div style="font-size:.68rem;color:var(--text3);margin-top:2px">Sell: <span style="color:var(--green);font-weight:700">${basePrice}</span>${r.sellPrice!==prod.sell?` · <span style="color:var(--warn)">Modified</span>`:''}</div>`;
+      }
+    }
     return `
     <div class="sell-item" id="sr-${r.id}">
       <div class="ac-wrap" style="position:relative">
@@ -4509,25 +4678,31 @@ function prodAC(inp,rowId){
   if(!q){su.style.display='none';updSellSum();return;}
   const m=db.products.filter(p=>p.name.toLowerCase().includes(q)&&p.qty>0);
   if(!m.length){su.style.display='none';updSellSum();return;}
+  const custTag = _getSellCustomerTag();
   su.style.display='';
-  su.innerHTML=m.map(p=>`
+  su.innerHTML=m.map(p=>{
+    const effectivePrice = getEffectiveSellPrice(p, custTag);
+    const isRetail = custTag==='Retail' && p.retailPrice && p.retailPrice>0;
+    return `
     <div class="ac-item" onclick="selProdRow('${rowId}','${p.id}')">
       <div><span>${p.name}</span><span class="ac-sub"> · Stock: ${p.qty}</span></div>
-      <span class="ac-price">${fmt(p.sell)}</span>
-    </div>
-  `).join('');
+      <span class="ac-price">${fmt(effectivePrice)}${isRetail?'<span style="font-size:.65rem;color:#60a5fa;margin-left:4px">🛒</span>':''}</span>
+    </div>`;
+  }).join('');
 }
 function selProdRow(rowId,prodId){
   const p=db.products.find(x=>x.id===prodId);
   const r=sellRows.find(x=>x.id===rowId);
-  // Always use the LATEST sell price from product
-  if(r){r.productId=p.id;r.name=p.name;r.sellPrice=p.sell;r.qty=1;}
+  const custTag = _getSellCustomerTag();
+  const effectivePrice = getEffectiveSellPrice(p, custTag);
+  // Always use the LATEST sell price from product (or retail price if applicable)
+  if(r){r.productId=p.id;r.name=p.name;r.sellPrice=effectivePrice;r.qty=1;}
   document.getElementById('psu-'+rowId).style.display='none';
   renderSellRows();
   setTimeout(()=>{
     const el=document.getElementById('pi-'+rowId);if(el)el.value=p.name;
     // Auto-fill sell price field with latest price
-    const sp=document.getElementById('rsp-'+rowId);if(sp)sp.value=p.sell;
+    const sp=document.getElementById('rsp-'+rowId);if(sp)sp.value=effectivePrice;
   },10);
 }
 function updRowPrice(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.sellPrice=parseFloat(v)||0;updSellSum();}
@@ -4585,17 +4760,47 @@ function updSellSum(){
 function shopAC(){
   const q=document.getElementById('shopNameInp').value.toLowerCase();
   const su=document.getElementById('shopSugg');
-  if(!q){su.style.display='none';return;}
+  if(!q){
+    su.style.display='none';
+    document.getElementById('sellNewCustTagRow').style.display='none';
+    document.getElementById('sellExistCustTagRow').style.display='none';
+    return;
+  }
   const m=db.shops.filter(s=>s.name.toLowerCase().includes(q));
-  if(!m.length){su.style.display='none';return;}
-  su.style.display='';
-  su.innerHTML=m.map(s=>`<div class="ac-item" onclick="selShopAC('${s.id}')"><span>${s.name}</span><span class="ac-price">Existing</span></div>`).join('');
+  // Check if exact match
+  const exact = db.shops.find(s=>s.name.toLowerCase()===q);
+  if(exact){
+    su.style.display='none';
+    document.getElementById('sellNewCustTagRow').style.display='none';
+    _showExistCustTag(exact);
+  } else {
+    // Show new customer tag selector
+    document.getElementById('sellNewCustTagRow').style.display='';
+    document.getElementById('sellExistCustTagRow').style.display='none';
+    if(!m.length){su.style.display='none';return;}
+    su.style.display='';
+    su.innerHTML=m.map(s=>`<div class="ac-item" onclick="selShopAC('${s.id}')"><span>${s.name}</span><span class="ac-price">Existing</span></div>`).join('');
+  }
 }
+function _showExistCustTag(sh){
+  const tagIcons={'Regular':'⭐','Wholesale':'📦','Retail':'🛒','VIP':'👑','New':'🆕'};
+  const tagColors={'Regular':'var(--green)','Wholesale':'var(--accent)','Retail':'#60a5fa','VIP':'var(--warn)','New':'var(--green)'};
+  const row = document.getElementById('sellExistCustTagRow');
+  if(sh.tag){
+    row.style.display='';
+    row.innerHTML=`<div style="font-size:.76rem;color:var(--text3)">Customer Tag: <span style="font-weight:700;color:${tagColors[sh.tag]||'var(--text2)'};">${tagIcons[sh.tag]||''} ${sh.tag}</span>${sh.tag==='Retail'?'<span style="margin-left:8px;font-size:.71rem;background:rgba(59,131,246,.12);color:#60a5fa;border-radius:7px;padding:2px 7px;font-weight:700">🛒 Retail prices will be used</span>':''}</div>`;
+  } else {
+    row.style.display='none';
+  }
+}
+
 function selShopAC(id){
   const sh=db.shops.find(x=>x.id===id);
   document.getElementById('shopNameInp').value=sh.name;
   document.getElementById('shopNameInp').dataset.shopId=id;
   document.getElementById('shopSugg').style.display='none';
+  document.getElementById('sellNewCustTagRow').style.display='none';
+  _showExistCustTag(sh);
   // Show prev balance banner
   const ls=sh.sessions[sh.sessions.length-1];
   if(ls&&ls.balance>0){
@@ -4604,6 +4809,8 @@ function selShopAC(id){
   } else {
     document.getElementById('prevBalBanner').style.display='none';
   }
+  // Re-render sell rows with retail price if applicable
+  renderSellRows();
   updSellSum();
 }
 function selPay(btn,m){
@@ -4831,9 +5038,13 @@ function saveSale(){
   const saleDate=document.getElementById('saleDate').value||today();
   const handledBy=(document.getElementById('billHandledBy').value||'').trim();
   const contact=(document.getElementById('billContact').value||'').trim();
+  const customerNumber=(document.getElementById('billCustomerNumber').value||'').trim();
   let sid=document.getElementById('shopNameInp').dataset.shopId;
   let shop=sid?db.shops.find(x=>x.id===sid):db.shops.find(x=>x.name.toLowerCase()===shopName.toLowerCase());
-  if(!shop){shop={id:uid(),name:shopName,sessions:[]};db.shops.push(shop);}
+  if(!shop){
+    shop={id:uid(),name:shopName,sessions:[],tag:_sellNewCustTag||''};
+    db.shops.push(shop);
+  }
   const ls=shop.sessions[shop.sessions.length-1];
   const prevBalance=ls?ls.balance:0;
   // Grand total = new bill + previous unpaid balance
@@ -4849,6 +5060,8 @@ function saveSale(){
     date:saleDate,
     handledBy,
     contact,
+    customerNumber,
+    customerTag: shop.tag||'',
     items:valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty})),
     newBillTotal,          // just this session's goods value
     total:grandTotal,      // total = newBill + prevBalance (what customer owes total)
@@ -8044,7 +8257,7 @@ function shareOnWhatsApp(shopId, sessId) {
 
   const msg = `*Sivasakthi Marketing*\n\nBill for: *${sh.name}*\nDate: ${fmtD(sess.date)}\n\n${items}\n\nCurrent Bill: ${fmt(currentBill)}${prevBalLine}\nPaid: ${fmt(sess.paid)}\nBalance Due: ${fmt(sess.balance)}\n\nThank you for your business! 🙏`;
   const encoded = encodeURIComponent(msg);
-  const contact = sess.contact ? sess.contact.replace(/\D/g, '') : '';
+  const contact = sess.customerNumber ? sess.customerNumber.replace(/\D/g, '') : (sess.contact ? sess.contact.replace(/\D/g, '') : '');
   const url = contact ? `https://wa.me/91${contact}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
   window.open(url, '_blank');
   logActivity(`💬 WhatsApp bill shared for ${sh.name}`);
