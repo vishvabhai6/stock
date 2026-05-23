@@ -2172,8 +2172,12 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <!-- Existing customer tag badge (read-only) -->
     <div id="sellExistCustTagRow" style="display:none;margin-bottom:10px"></div>
     <div class="form-2col">
-      <div class="fg"><label>Handled By</label><input type="text" id="billHandledBy" placeholder="e.g. P.Vishva" autocomplete="off"></div>
-      <div class="fg"><label>Contact Number</label><input type="text" id="billContact" placeholder="e.g. 9944966353" autocomplete="off"></div>
+      <div class="fg ac-wrap">
+        <label>Handled By</label>
+        <input type="text" id="billHandledBy" placeholder="e.g. P.Vishva" autocomplete="off" oninput="handledByAC()">
+        <div class="ac-list" id="handledBySugg" style="display:none"></div>
+      </div>
+      <div class="fg"><label>Contact Number</label><input type="text" id="billContact" placeholder="e.g. 9944966353" autocomplete="off" inputmode="numeric"></div>
     </div>
     <div class="fg"><label>Sale Date</label><input type="date" id="saleDate"></div>
     <div id="prevBalBanner" style="display:none;margin-bottom:12px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:12px;padding:11px 14px">
@@ -2658,7 +2662,7 @@ function seedData(){
     }
   ];
 }
-seedData();
+// seedData(); // REMOVED
 
 // ══════════════════════════════════════════
 // UTILS
@@ -4699,8 +4703,11 @@ function openSellModal(eid=null,shopId=null){
     const ls=sh.sessions[sh.sessions.length-1];
     if(ls){
       if(ls.handledBy) document.getElementById('billHandledBy').value=ls.handledBy;
-      if(ls.contact) document.getElementById('billContact').value=ls.contact;
-      if(ls.customerNumber) document.getElementById('billCustomerNumber').value=ls.customerNumber;
+      // Use shop.contact if available (always the latest), else fall back to last session
+      const latestContact = sh.contact || ls.contact || '';
+      const latestCustNum = sh.customerNumber || ls.customerNumber || '';
+      if(latestContact) document.getElementById('billContact').value=latestContact;
+      if(latestCustNum) document.getElementById('billCustomerNumber').value=latestCustNum;
       if(ls.balance>0){
         document.getElementById('prevBalBanner').style.display='';
         document.getElementById('prevBalAmt').textContent=fmt(ls.balance)+' (from '+fmtD(ls.date)+')';
@@ -4891,6 +4898,11 @@ function selShopAC(id){
   document.getElementById('shopSugg').style.display='none';
   document.getElementById('sellNewCustTagRow').style.display='none';
   _showExistCustTag(sh);
+  // Pre-fill contact from shop (always latest) or last session
+  const latestContact = sh.contact || '';
+  const latestCustNum = sh.customerNumber || '';
+  if(latestContact){ const c=document.getElementById('billContact'); if(c&&!c.value) c.value=latestContact; }
+  if(latestCustNum){ const cn=document.getElementById('billCustomerNumber'); if(cn&&!cn.value) cn.value=latestCustNum; }
   // Show prev balance banner
   const ls=sh.sessions[sh.sessions.length-1];
   if(ls&&ls.balance>0){
@@ -4903,6 +4915,31 @@ function selShopAC(id){
   renderSellRows();
   updSellSum();
 }
+
+// ── Handled By autocomplete (staff list) ──
+function handledByAC(){
+  const q=(document.getElementById('billHandledBy').value||'').toLowerCase().trim();
+  const su=document.getElementById('handledBySugg');
+  if(!q){su.style.display='none';return;}
+  const sl=db.staffList||[];
+  const matches=sl.filter(s=>s.name.toLowerCase().startsWith(q));
+  if(!matches.length){su.style.display='none';return;}
+  su.style.display='';
+  su.innerHTML=matches.map(s=>`<div class="ac-item" onclick="selHandledBy('${s.id}')"><span>👤 ${s.name}</span><span class="ac-price" style="font-size:.72rem">${s.email||''}</span></div>`).join('');
+}
+function selHandledBy(id){
+  const s=(db.staffList||[]).find(x=>x.id===id);
+  if(!s) return;
+  document.getElementById('billHandledBy').value=s.name;
+  document.getElementById('handledBySugg').style.display='none';
+}
+// Close handledBy dropdown on outside click
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#billHandledBy')&&!e.target.closest('#handledBySugg')){
+    const su=document.getElementById('handledBySugg');
+    if(su) su.style.display='none';
+  }
+});
 function selPay(btn,m){
   selPayMethod=m;
   document.querySelectorAll('#payOpts .pay-opt').forEach(b=>b.classList.remove('on'));
@@ -5168,6 +5205,9 @@ function saveSale(){
   };
   if(settle&&writeOff>0){ sess.settled=true; sess.writeOff=writeOff; }
   shop.sessions.push(sess);
+  // Always persist the latest contact number on the shop itself so future bills auto-fill correctly
+  if(contact) shop.contact = contact;
+  if(customerNumber) shop.customerNumber = customerNumber;
   valid.forEach(r=>{ if(r.productId){const p=db.products.find(x=>x.id===r.productId);if(p){p.qty-=r.qty;p.sold+=r.qty;}} });
   // Low stock warning after sale
   checkLowStockAfterSale(valid);
@@ -6210,6 +6250,14 @@ function printInvoice(shopId, sessId){
   const sess=sh.sessions.find(s=>s.id===sessId);
   if(!sess) return;
 
+  // ── Retail tag: use special retail bill style ──
+  if(sh.tag==='Retail'){
+    printRetailBill(sh, sess);
+    return;
+  }
+
+
+
   // ── Return session: print a Return Note ──
   if(sess.type==='return'){
     const retRows=(sess.returnItems||[]).map((it,i)=>`
@@ -6372,13 +6420,14 @@ function printInvoice(shopId, sessId){
       <!-- Totals -->
       <div style="display:flex;justify-content:flex-end">
         <table class="totals-table" style="width:auto;min-width:280px">
-          <tr><td style="color:#555">Total Amount</td><td style="text-align:right;font-weight:700">₹${printOriginalBill.toFixed(2)}</td></tr>
+          ${sess.discount&&sess.discount.amount>0?`<tr><td style="color:#555">Sub Total</td><td style="text-align:right">₹${printOriginalBill.toFixed(2)}</td></tr><tr><td style="color:#16a34a">Discount${sess.discount.type==='pct'?' ('+sess.discount.value+'%)':''}</td><td style="text-align:right;color:#16a34a">- ₹${sess.discount.amount.toFixed(2)}</td></tr>`:''}
+          <tr><td style="color:#555">${sess.discount&&sess.discount.amount>0?'Bill After Discount':'Total Amount'}</td><td style="text-align:right;font-weight:700">₹${printOriginalBill.toFixed(2)}</td></tr>
           ${printTotalReturned>0?`<tr><td style="color:#b45309;font-style:italic">(-) Return Amount</td><td style="text-align:right;color:#b45309;font-style:italic">-₹${printTotalReturned.toFixed(2)}</td></tr>
           <tr class="subtotal"><td style="font-weight:700">Bill After Return</td><td style="text-align:right;font-weight:700">₹${newBill.toFixed(2)}</td></tr>`:''}
+          ${sess.deliveryCharge>0?`<tr><td style="color:#2563eb">🚚 Delivery Charge</td><td style="text-align:right;color:#2563eb">+ ₹${sess.deliveryCharge.toFixed(2)}</td></tr>
+          <tr class="subtotal"><td style="font-weight:700">Bill Total</td><td style="text-align:right;font-weight:700">₹${(newBill+(sess.deliveryCharge||0)).toFixed(2)}</td></tr>`:''}
           ${prevBal>0?`<tr><td style="color:#555">(+) Previous Balance</td><td style="text-align:right;font-weight:700">₹${prevBal.toFixed(2)}</td></tr>
-          <tr class="subtotal"><td style="font-weight:700">Total Bill</td><td style="text-align:right;font-weight:700">₹${sess.total.toFixed(2)}</td></tr>`:''}
-          ${sess.discount&&sess.discount.amount>0?`<tr><td style="color:#555">Sub Total</td><td style="text-align:right">₹${(sess.newBillTotal+(sess.discount?sess.discount.amount:0)).toFixed(2)}</td></tr><tr><td style="color:var(--green)">Discount${sess.discount.type==='pct'?' ('+sess.discount.value+'%)':''}</td><td style="text-align:right;color:var(--green)">- ₹${sess.discount.amount.toFixed(2)}</td></tr>`:''}
-          ${sess.deliveryCharge>0?`<tr><td style="color:#2563eb">🚚 Delivery Charge</td><td style="text-align:right;color:#2563eb">+ ₹${sess.deliveryCharge.toFixed(2)}</td></tr>`:''}
+          <tr class="subtotal"><td style="font-weight:700">Grand Total</td><td style="text-align:right;font-weight:700">₹${sess.total.toFixed(2)}</td></tr>`:''}
           <tr><td style="color:#555">Paid (${sess.payMethod})</td><td style="text-align:right">₹${sess.paid.toFixed(2)}</td></tr>
           ${sess.notes?`<tr><td colspan="2" style="color:var(--text3);font-size:.78rem;font-style:italic;padding-top:6px">📝 Note: ${sess.notes}</td></tr>`:''}
           <tr class="grand">
@@ -6407,6 +6456,187 @@ function printInvoice(shopId, sessId){
   win.document.close();
 }
 
+
+// ══════════════════════════════════════════
+// RETAIL BILL — Stylish Receipt Style
+// ══════════════════════════════════════════
+function printRetailBill(sh, sess){
+  const newBill = sess.newBillTotal || sess.total;
+  const prevBal = sess.prevBalance || 0;
+  const delivCharge = sess.deliveryCharge || 0;
+  const printTotalReturned = (sess.returns||[]).reduce((a,r)=>a+r.amount,0);
+  const printOriginalBill = newBill + printTotalReturned;
+  const billAfterReturn = newBill;
+  const billWithDelivery = billAfterReturn + delivCharge;
+  const grandTotal = billWithDelivery + prevBal;
+  const handledBy = sess.handledBy || '';
+  const contact = sess.contact || '';
+  const discAmt = sess.discount&&sess.discount.amount>0 ? sess.discount.amount : 0;
+
+  let lastPayDate='';
+  if(sess.payments&&sess.payments.length){
+    const sorted=[...sess.payments].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    lastPayDate=sorted[0].date||'';
+  }
+
+  const itemRows = sess.items.map((it,i)=>`
+    <tr>
+      <td class="td-num">${i+1}</td>
+      <td class="td-name">${it.name}</td>
+      <td class="td-price">₹${it.sellPrice.toFixed(2)}</td>
+      <td class="td-qty">${it.qty}</td>
+      <td class="td-amt">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
+    </tr>`).join('');
+
+  const win = window.open('','_blank','width=520,height=900');
+  win.document.write(`<!DOCTYPE html><html><head><title>Receipt – ${sh.name}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800;900&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',sans-serif;background:#f0f0f0;display:flex;justify-content:center;padding:20px 10px}
+    .receipt{background:#fff;width:420px;border-radius:4px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}
+    /* Blue header bar */
+    .receipt-header{background:#1d4ed8;color:#fff;padding:22px 24px 18px;position:relative;overflow:hidden}
+    .receipt-header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;background:rgba(255,255,255,.07);border-radius:50%}
+    .receipt-header::after{content:'';position:absolute;bottom:-30px;left:-20px;width:100px;height:100px;background:rgba(255,255,255,.05);border-radius:50%}
+    .rh-tag{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:20px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:3px 10px;margin-bottom:10px}
+    .rh-name{font-size:22px;font-weight:900;letter-spacing:.5px;position:relative;z-index:1}
+    .rh-sub{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.7;margin-top:3px;position:relative;z-index:1}
+    .rh-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;position:relative;z-index:1}
+    .rh-cust{font-size:13px;font-weight:700}
+    .rh-cust-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;opacity:.65;margin-bottom:2px}
+    .rh-date{text-align:right;font-size:12px;font-weight:600}
+    .rh-date-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;opacity:.65;margin-bottom:2px}
+    /* Zigzag tear edge */
+    .zigzag{height:16px;background:linear-gradient(-135deg,#fff 5px,transparent 0) 0 10px,linear-gradient(135deg,#f0f0f0 5px,transparent 0) 0 10px;background-color:#1d4ed8;background-size:16px 16px;background-position:left bottom}
+    /* Info row */
+    .info-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-bottom:1px dashed #e5e7eb;padding:14px 0;margin:0 20px}
+    .ib-cell{text-align:center;padding:0 8px}
+    .ib-cell:not(:last-child){border-right:1px dashed #e5e7eb}
+    .ib-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;margin-bottom:3px}
+    .ib-val{font-size:12px;font-weight:700;color:#111}
+    /* Items table */
+    .items-section{padding:16px 20px}
+    .items-hdr{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#6b7280;margin-bottom:8px;border-bottom:2px solid #111;padding-bottom:5px;display:grid;grid-template-columns:24px 1fr 70px 30px 72px;gap:4px}
+    .items-hdr span:last-child,.items-hdr span:nth-child(3){text-align:right}
+    .items-hdr span:nth-child(4){text-align:center}
+    table{width:100%;border-collapse:collapse}
+    .td-num{width:24px;font-size:11px;color:#9ca3af;padding:7px 4px;vertical-align:top}
+    .td-name{font-size:13px;font-weight:600;padding:7px 4px;vertical-align:top}
+    .td-price{font-size:11px;color:#6b7280;padding:7px 4px;text-align:right;vertical-align:top;width:70px}
+    .td-qty{font-size:12px;font-weight:700;padding:7px 4px;text-align:center;vertical-align:top;width:30px}
+    .td-amt{font-size:13px;font-weight:700;padding:7px 4px;text-align:right;vertical-align:top;width:72px;color:#111}
+    tbody tr{border-bottom:1px solid #f3f4f6}
+    tbody tr:last-child{border-bottom:2px dashed #d1d5db}
+    /* Totals */
+    .totals{padding:14px 20px;background:#fafafa;border-top:1px dashed #e5e7eb}
+    .tot-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px}
+    .tot-row.muted{color:#6b7280;font-size:12px}
+    .tot-row.delivery{color:#2563eb;font-size:12px;font-weight:600}
+    .tot-row.prev{color:#b45309;font-size:12px;font-weight:600}
+    .tot-row.divider{border-top:1px solid #e5e7eb;margin-top:6px;padding-top:10px}
+    .tot-row.grand{background:#111;color:#fff;margin:10px -0px 0;padding:12px 20px;font-size:15px;font-weight:900;border-radius:4px}
+    .tot-row.paid-row{color:#16a34a;font-weight:700;font-size:13px;border-top:1px dashed #d1d5db;margin-top:6px;padding-top:8px}
+    .bal-section{padding:0 20px 18px;background:#fafafa}
+    .bal-box{border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:800}
+    .bal-box.settled{background:#dcfce7;color:#15803d}
+    .bal-box.due{background:#fef2f2;color:#b91c1c}
+    .bal-lbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+    .bal-amt{font-size:17px;font-weight:900}
+    /* Zigzag bottom */
+    .zigzag-bot{height:16px;background:linear-gradient(-135deg,#f0f0f0 5px,transparent 0) 0 0,linear-gradient(135deg,#fff 5px,transparent 0) 0 0;background-color:#fafafa;background-size:16px 16px}
+    /* Footer */
+    .receipt-footer{background:#1d4ed8;color:rgba(255,255,255,.75);text-align:center;padding:14px;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+    .receipt-footer strong{color:#fff;display:block;font-size:12px;margin-bottom:3px}
+    /* notes */
+    .note-bar{margin:0 20px 14px;padding:9px 12px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:0 6px 6px 0;font-size:11px;color:#92400e}
+    @media print{button{display:none!important}body{padding:0;background:#fff}.receipt{box-shadow:none;width:100%}}
+  </style></head><body>
+  <div class="receipt">
+    <!-- HEADER -->
+    <div class="receipt-header">
+      <div class="rh-tag">🛒 Retail Customer</div>
+      <div class="rh-name">Sivasakthi Marketing</div>
+      <div class="rh-sub">Sales Receipt</div>
+      <div class="rh-row">
+        <div>
+          <div class="rh-cust-lbl">Customer</div>
+          <div class="rh-cust">${sh.name}</div>
+          ${contact?`<div style="font-size:10px;opacity:.7;margin-top:2px">${contact}</div>`:''}
+        </div>
+        <div>
+          <div class="rh-date-lbl">Bill Date</div>
+          <div class="rh-date">${fmtD(sess.date)}</div>
+          ${handledBy?`<div style="font-size:10px;opacity:.65;margin-top:2px;text-align:right">By: ${handledBy}</div>`:''}
+        </div>
+      </div>
+    </div>
+    <div class="zigzag"></div>
+
+    <!-- INFO BAR -->
+    <div class="info-bar">
+      <div class="ib-cell">
+        <div class="ib-lbl">Items</div>
+        <div class="ib-val">${sess.items.length}</div>
+      </div>
+      <div class="ib-cell">
+        <div class="ib-lbl">Payment</div>
+        <div class="ib-val" style="font-size:11px">${sess.payMethod||'—'}</div>
+      </div>
+      <div class="ib-cell">
+        <div class="ib-lbl">Status</div>
+        <div class="ib-val" style="color:${sess.balance===0?'#16a34a':'#b91c1c'}">${sess.balance===0?'✓ Paid':'Pending'}</div>
+      </div>
+    </div>
+
+    <!-- ITEMS -->
+    <div class="items-section">
+      <div class="items-hdr">
+        <span>#</span><span>Product</span><span style="text-align:right">Price</span><span style="text-align:center">Qty</span><span style="text-align:right">Total</span>
+      </div>
+      <table><tbody>${itemRows}</tbody></table>
+    </div>
+
+    <!-- TOTALS -->
+    <div class="totals">
+      ${discAmt>0?`
+      <div class="tot-row muted"><span>Sub Total</span><span>₹${printOriginalBill.toFixed(2)}</span></div>
+      <div class="tot-row muted" style="color:#16a34a"><span>Discount${sess.discount&&sess.discount.type==='pct'?' ('+sess.discount.value+'%)':''}</span><span>- ₹${discAmt.toFixed(2)}</span></div>`:''}
+      ${printTotalReturned>0?`
+      <div class="tot-row muted" style="color:#b45309"><span>(-) Return Amount</span><span>- ₹${printTotalReturned.toFixed(2)}</span></div>`:''}
+      <div class="tot-row divider" style="font-weight:700"><span>Total Amount</span><span>₹${billAfterReturn.toFixed(2)}</span></div>
+      ${delivCharge>0?`
+      <div class="tot-row delivery"><span>🚚 Delivery Charge</span><span>+ ₹${delivCharge.toFixed(2)}</span></div>
+      <div class="tot-row" style="font-weight:700;font-size:13px;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:4px"><span>Bill Total</span><span>₹${billWithDelivery.toFixed(2)}</span></div>`:''}
+      ${prevBal>0?`
+      <div class="tot-row prev"><span>+ Previous Balance</span><span>₹${prevBal.toFixed(2)}</span></div>
+      <div class="tot-row" style="font-weight:800;font-size:14px;border-top:2px solid #111;padding-top:8px;margin-top:4px"><span>Grand Total</span><span>₹${grandTotal.toFixed(2)}</span></div>`:''}
+      <div class="tot-row paid-row"><span>Paid Now</span><span>₹${sess.paid.toFixed(2)}</span></div>
+    </div>
+
+    ${sess.notes?`<div class="note-bar">📝 ${sess.notes}</div>`:''}
+
+    <!-- BALANCE BOX -->
+    <div class="bal-section">
+      <div class="bal-box ${sess.balance===0?'settled':'due'}">
+        <div class="bal-lbl">${sess.balance===0?'✓ Fully Settled':'Balance Due'}</div>
+        <div class="bal-amt">${sess.balance===0?'₹0.00':'₹'+sess.balance.toFixed(2)}</div>
+      </div>
+    </div>
+    <div class="zigzag-bot"></div>
+
+    <!-- FOOTER -->
+    <div class="receipt-footer">
+      <strong>Sivasakthi Marketing</strong>
+      Thank you for shopping with us!
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:16px">
+    <button onclick="window.print()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:11px 28px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px">🖨️ PRINT RECEIPT</button>
+  </div>
+  </body></html>`);
+  win.document.close();
+}
 
 // ══════════════════════════════════════════
 // FEATURE: INLINE STOCK EDIT (product table)
@@ -6847,8 +7077,15 @@ function downloadPDFInvoice(shopId, sessId){
   const sess = sh.sessions.find(s=>s.id===sessId);
   if(!sess) return;
 
+  // ── Retail tag: generate styled Retail PDF ──
+  if(sh.tag==='Retail'){
+    downloadRetailPDF(sh, sess);
+    return;
+  }
+
   // Use jsPDF if available, else fallback to print
-  if(typeof window.jspdf === 'undefined' && typeof window.jsPDF === 'undefined'){
+  const JsPDF0 = _getJsPDF();
+  if(!JsPDF0){
     toast('Generating PDF via print…','info');
     printInvoice(shopId, sessId);
     return;
@@ -6856,8 +7093,7 @@ function downloadPDFInvoice(shopId, sessId){
 
   // ── Return session: generate a Return Note PDF ──
   if(sess.type === 'return'){
-    const { jsPDF: jsPDF2 } = window.jspdf || window;
-    const rdoc = new jsPDF2({ unit:'mm', format:'a4' });
+    const rdoc = new JsPDF0({ unit:'mm', format:'a4' });
     const rW=210; const rM=14;
     rdoc.setDrawColor(0); rdoc.setLineWidth(1.2);
     rdoc.line(rM,10,rW-rM,10); rdoc.setLineWidth(0.3); rdoc.line(rM,12.5,rW-rM,12.5);
@@ -6914,8 +7150,7 @@ function downloadPDFInvoice(shopId, sessId){
     return;
   }
 
-  const { jsPDF } = window.jspdf || window;
-  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const doc = new JsPDF0({ unit:'mm', format:'a4' });
   const newBill = sess.newBillTotal||sess.total;
   const prevBal = sess.prevBalance||0;
   const handledBy = sess.handledBy||'—';
@@ -7156,15 +7391,15 @@ function downloadPDFInvoice(shopId, sessId){
   // ── PAID stamp if settled (always on the last page) ──
   if(lastPayDate||sess.settled){
     doc.saveGraphicsState();
-    doc.setGState(new doc.GState({opacity:0.15}));
     doc.setFont('helvetica','bold');
     doc.setFontSize(42);
-    doc.setTextColor(0);
+    doc.setTextColor(200,200,200);
     const cx=pageW/2, cy=needsPage2?150:150;
     doc.text('PAID', cx, cy, {align:'center', angle:330});
     doc.setFontSize(12);
     doc.text(fmtD(lastPayDate), cx, cy+12, {align:'center', angle:330});
     doc.restoreGraphicsState();
+    doc.setTextColor(0);
   }
 
   // ── Footer with signature (always on last page) ──
@@ -7178,6 +7413,275 @@ function downloadPDFInvoice(shopId, sessId){
 
   doc.save('Bill-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
   toast('PDF Bill downloaded 📄','ok','pay');
+}
+
+// ══════════════════════════════════════════
+// RETAIL PDF — Clean Black & White Receipt (v31)
+// ══════════════════════════════════════════
+function _getJsPDF(){
+  if(window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  if(window.jsPDF) return window.jsPDF;
+  return null;
+}
+
+function downloadRetailPDF(sh, sess){
+  const JsPDF = _getJsPDF();
+  if(!JsPDF){
+    toast('Generating via print…','info');
+    printRetailBill(sh, sess);
+    return;
+  }
+  const doc = new JsPDF({ unit:'mm', format:'a4' });
+  const pW=210; const M=16;
+
+  const newBill = sess.newBillTotal || sess.total;
+  const prevBal = sess.prevBalance || 0;
+  const delivCharge = sess.deliveryCharge || 0;
+  const totalReturned = (sess.returns||[]).reduce((a,r)=>a+r.amount,0);
+  const billAfterReturn = newBill;
+  const billWithDelivery = billAfterReturn + delivCharge;
+  const grandTotal = billWithDelivery + prevBal;
+  const disc = sess.discount;
+  const discAmt = disc&&disc.amount>0 ? disc.amount : 0;
+  const handledBy = sess.handledBy||'';
+  // Customer phone: prefer dedicated customerNumber field, fall back to contact
+  const custPhone = sh.customerNumber || sess.customerNumber || sh.contact || sess.contact || '';
+  const settled = sess.balance===0;
+
+  // ── TOP HEADER (black bar) ──
+  doc.setFillColor(15,15,15);
+  doc.rect(0,0,pW,38,'F');
+
+  // "RETAIL CUSTOMER" tag pill — white outline
+  doc.setDrawColor(255,255,255); doc.setLineWidth(0.4);
+  doc.roundedRect(M, 6, 34, 5, 2, 2,'S');
+  doc.setFont('helvetica','bold'); doc.setFontSize(5.5); doc.setTextColor(255,255,255);
+  doc.text('RETAIL CUSTOMER', M+3, 9.8);
+
+  // Company name — bold white
+  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(255,255,255);
+  doc.text('Sivasakthi Marketing', M, 24);
+
+  // SALES RECEIPT label
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,180,180);
+  doc.text('SALES RECEIPT', M, 30);
+
+  // Date + By — right side in header
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(200,200,200);
+  doc.text(fmtD(sess.date), pW-M, 24, {align:'right'});
+  if(handledBy){ doc.text('By: '+handledBy, pW-M, 31, {align:'right'}); }
+
+  // ── CUSTOMER BLOCK (just below header, light grey bg) ──
+  doc.setFillColor(242,242,242);
+  doc.rect(0,38,pW,22,'F');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(10,10,10);
+  doc.text(sh.name, M, 48);
+
+  if(custPhone){
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(80,80,80);
+    doc.text(custPhone, M, 55);
+  }
+
+  // Bill # / Ref on right side
+  // (date already shown in header — not repeated here)
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(100,100,100);
+  doc.text(sess.payMethod||'Cash', pW-M, 55, {align:'right'});
+
+  // Thin divider below customer block
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+  doc.line(M, 61, pW-M, 61);
+
+  // ── INFO STRIP (items / payment / status) ──
+  let y = 62;
+  const ibW = (pW-2*M)/3;
+  const ibData = [
+    ['ITEMS', String(sess.items.length)],
+    ['PAYMENT', sess.payMethod||'—'],
+    ['STATUS', settled ? 'PAID' : 'PENDING']
+  ];
+  ibData.forEach((d,i)=>{
+    const cx = M + ibW*i + ibW/2;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(130,130,130);
+    doc.text(d[0], cx, y+4, {align:'center'});
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(10,10,10);
+    doc.text(d[1], cx, y+10, {align:'center'});
+  });
+
+  // Thin divider between info strip and table
+  y += 16;
+  doc.setDrawColor(180,180,180); doc.setLineWidth(0.25);
+  doc.line(M, y, pW-M, y);
+
+  // ── PRODUCTS TABLE HEADER ──
+  y += 1;
+  doc.setFillColor(30,30,30);
+  doc.rect(M, y, pW-2*M, 8, 'F');
+
+  // Column positions: #, Product, Unit Price, Qty, Total
+  const colNo   = M+4;
+  const colName = M+12;
+  const colUnit = 140;
+  const colQty  = 160;
+  const colTot  = pW-M;
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(255,255,255);
+  doc.text('#',          colNo,  y+5);
+  doc.text('PRODUCT',   colName, y+5);
+  doc.text('UNIT PRICE',colUnit, y+5, {align:'right'});
+  doc.text('QTY',       colQty,  y+5, {align:'right'});
+  doc.text('TOTAL',     colTot,  y+5, {align:'right'});
+  y += 8;
+
+  // ── PRODUCT ROWS ──
+  const rowH = 9;
+  sess.items.forEach((it,i)=>{
+    // Alternate row background
+    if(i%2===0){
+      doc.setFillColor(252,252,252);
+    } else {
+      doc.setFillColor(244,244,244);
+    }
+    doc.rect(M, y, pW-2*M, rowH, 'F');
+
+    // Row border bottom
+    doc.setDrawColor(225,225,225); doc.setLineWidth(0.15);
+    doc.line(M, y+rowH, pW-M, y+rowH);
+
+    const midY = y + rowH/2 + 1.5;
+
+    // # index
+    doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(160,160,160);
+    doc.text(String(i+1), colNo, midY);
+
+    // Product name — truncate to fit
+    const nameStr = it.name.length > 38 ? it.name.substring(0,37)+'…' : it.name;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(15,15,15);
+    doc.text(nameStr, colName, midY);
+
+    // Company / brand hint (smaller)
+    if(it.company){
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.2); doc.setTextColor(140,140,140);
+      doc.text(it.company.substring(0,20), colName, midY+3.8);
+    }
+
+    // Unit price
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(70,70,70);
+    doc.text('Rs.'+it.sellPrice.toFixed(2), colUnit, midY, {align:'right'});
+
+    // Qty — bold and prominent
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(20,20,20);
+    doc.text('x'+String(it.qty), colQty, midY, {align:'right'});
+
+    // Line total — bold
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(10,10,10);
+    doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), colTot, midY, {align:'right'});
+
+    y += rowH + (it.company ? 2 : 0);
+  });
+
+  // ── DASHED SEPARATOR ──
+  y += 4;
+  doc.setDrawColor(160,160,160); doc.setLineWidth(0.3);
+  doc.setLineDashPattern([2,2], 0);
+  doc.line(M, y, pW-M, y);
+  doc.setLineDashPattern([], 0);
+  y += 6;
+
+  // ── TOTALS BLOCK (right-aligned box) ──
+  const boxX = 110;
+  const boxW = pW - M - boxX + M;
+  const totRows = [];
+
+  if(discAmt>0){
+    totRows.push({lbl:'Sub Total',      val:'Rs.'+billAfterReturn.toFixed(2), style:'normal'});
+    totRows.push({lbl:'Discount'+(disc.type==='pct'?' ('+disc.value+'%)':''), val:'-Rs.'+discAmt.toFixed(2), style:'discount'});
+  }
+  if(totalReturned>0)
+    totRows.push({lbl:'(-) Return',     val:'-Rs.'+totalReturned.toFixed(2), style:'normal'});
+
+  totRows.push({lbl:'Total Amount',    val:'Rs.'+billAfterReturn.toFixed(2), style:'bold'});
+
+  if(delivCharge>0){
+    totRows.push({lbl:'Delivery Charge',val:'+Rs.'+delivCharge.toFixed(2),   style:'normal'});
+    totRows.push({lbl:'Bill Total',     val:'Rs.'+billWithDelivery.toFixed(2),style:'bold'});
+  }
+  if(prevBal>0){
+    totRows.push({lbl:'Prev. Balance',  val:'+Rs.'+prevBal.toFixed(2),        style:'warn'});
+    totRows.push({lbl:'Grand Total',    val:'Rs.'+grandTotal.toFixed(2),       style:'bold'});
+  }
+  totRows.push({lbl:'Paid ('+( sess.payMethod||'Cash')+')', val:'Rs.'+sess.paid.toFixed(2), style:'paid'});
+
+  const rH = 7.5;
+  // box outline
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+  doc.rect(boxX, y, boxW, totRows.length*rH+4, 'S');
+
+  let ry = y + rH;
+  totRows.forEach(r=>{
+    let lc=[80,80,80], vc=[20,20,20], fs=9, fw='normal';
+    if(r.style==='bold'){ fw='bold'; fs=10; lc=[10,10,10]; vc=[10,10,10]; }
+    if(r.style==='discount'){ vc=[40,120,40]; lc=[40,120,40]; }
+    if(r.style==='warn'){ vc=[160,80,0]; lc=[160,80,0]; }
+    if(r.style==='paid'){ vc=[30,80,180]; lc=[30,80,180]; }
+
+    doc.setFont('helvetica',fw); doc.setFontSize(fs); doc.setTextColor(...lc);
+    doc.text(r.lbl, boxX+3, ry);
+    doc.setFont('helvetica','bold'); doc.setTextColor(...vc);
+    doc.text(r.val, pW-M, ry, {align:'right'});
+
+    // Separator line for bold rows
+    if(r.style==='bold'){
+      doc.setDrawColor(200,200,200); doc.setLineWidth(0.2);
+      doc.line(boxX, ry+2, pW-M, ry+2);
+    }
+    ry += rH;
+  });
+
+  // ── BALANCE DUE BOX — full width, always readable ──
+  y = ry + 4;
+  // Full-width: black when pending, light grey when settled
+  doc.setFillColor(settled ? 240 : 15, settled ? 240 : 15, settled ? 240 : 15);
+  doc.setDrawColor(settled ? 160 : 10, settled ? 160 : 10, settled ? 160 : 10);
+  doc.setLineWidth(0.6);
+  doc.rect(M, y, pW-2*M, 16, 'FD');
+
+  // Label — white text on black, dark text on settled grey
+  doc.setFont('helvetica','bold'); doc.setFontSize(8);
+  doc.setTextColor(settled ? 80 : 255, settled ? 80 : 255, settled ? 80 : 255);
+  doc.text(settled ? 'FULLY SETTLED' : 'BALANCE DUE', M+5, y+10.5);
+
+  // Amount — large
+  doc.setFontSize(13);
+  doc.setTextColor(settled ? 80 : 255, settled ? 80 : 255, settled ? 80 : 255);
+  doc.text(settled ? 'Rs. 0.00' : 'Rs.'+sess.balance.toFixed(2), pW-M-5, y+10.5, {align:'right'});
+
+  // ── NOTES ──
+  if(sess.notes){
+    y += 20;
+    doc.setFillColor(250,250,245);
+    doc.setDrawColor(200,200,150); doc.setLineWidth(0.25);
+    doc.rect(M, y, pW-2*M, 10,'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(100,100,60);
+    doc.text('NOTE:', M+3, y+6.5);
+    doc.setFont('helvetica','normal'); doc.setTextColor(60,60,40);
+    const noteLines = doc.splitTextToSize(sess.notes, pW-2*M-22);
+    doc.text(noteLines[0]||'', M+18, y+6.5);
+  }
+
+  // ── FOOTER (black bar) ──
+  doc.setFillColor(15,15,15);
+  doc.rect(0,279,pW,18,'F');
+  // Thin white line accent
+  doc.setDrawColor(255,255,255); doc.setLineWidth(0.3);
+  doc.line(M, 282, pW-M, 282);
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
+  doc.text('Sivasakthi Marketing', pW/2, 289, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,180,180);
+  doc.text('Thank you for shopping with us!', pW/2, 294, {align:'center'});
+
+  doc.save('Retail-Receipt-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
+  toast('Retail PDF downloaded 📄','ok','pay');
 }
 
 
@@ -8484,26 +8988,28 @@ function shareOnWhatsApp(shopId, sessId) {
 // ══════════════════════════════════════════
 // CONSOLIDATED Firestore Save (with expenses + offline queue)
 // ══════════════════════════════════════════
+// Deep-clean undefined values so Firestore never rejects the payload
+function _clean(obj) {
+  return JSON.parse(JSON.stringify(obj, (k, v) => v === undefined ? null : v));
+}
+
 window.saveToFirestore = async function() {
-  if (!_isOnline) {
-    _offlineQueue.push(Date.now());
-    document.getElementById('db-status').textContent = '🟠 Queued (offline)';
-    return;
-  }
   try {
-    await _db.collection("sivasakthi").doc("maindb").set({
-      companies: db.companies,
-      products:  db.products,
-      shops:     db.shops,
-      staffList: db.staffList || [],
-      preorders: db.preorders || [],
-      expenses:  db.expenses  || [],
+    const payload = _clean({
+      companies: db.companies  || [],
+      products:  db.products   || [],
+      shops:     db.shops      || [],
+      staffList: db.staffList  || [],
+      preorders: db.preorders  || [],
+      expenses:  db.expenses   || [],
       updatedAt: new Date().toISOString()
     });
+    await _db.collection("sivasakthi").doc("maindb").set(payload);
     document.getElementById('db-status').textContent = '🟢 Cloud Sync ON';
+    console.log("✅ Firestore save SUCCESS — shops:", db.shops.length);
   } catch(e) {
-    console.warn("Firestore save failed:", e.message);
-    document.getElementById('db-status').textContent = '🔴 Sync Error';
+    console.error("❌ Firestore save FAILED:", e.code, e.message);
+    document.getElementById('db-status').textContent = '🔴 Sync Error: ' + (e.code||e.message);
   }
 };
 
@@ -8515,16 +9021,17 @@ window.loadFromFirestore = async function() {
     const snap = await _db.collection("sivasakthi").doc("maindb").get();
     if (snap.exists) {
       const data = snap.data();
-      if (data.companies && data.companies.length) db.companies = data.companies;
-      if (data.products  && data.products.length)  db.products  = data.products;
-      if (data.shops     && data.shops.length)     db.shops     = data.shops;
-      if (data.staffList && data.staffList.length) db.staffList = data.staffList;
-      if (data.preorders && data.preorders.length) db.preorders = data.preorders;
-      if (data.expenses  && data.expenses.length)  db.expenses  = data.expenses;
+      if (data.companies !== undefined) db.companies = data.companies || [];
+      if (data.products  !== undefined) db.products  = data.products  || [];
+      if (data.shops     !== undefined) db.shops     = data.shops     || [];
+      if (data.staffList !== undefined) db.staffList = data.staffList || [];
+      if (data.preorders !== undefined) db.preorders = data.preorders || [];
+      if (data.expenses  !== undefined) db.expenses  = data.expenses  || [];
+      console.log("✅ Firestore load SUCCESS — shops:", db.shops.length);
     }
     document.getElementById('db-status').textContent = '🟢 Cloud Sync ON';
   } catch(e) {
-    console.warn("Firestore load failed:", e.message);
+    console.error("❌ Firestore load FAILED:", e.code, e.message);
     document.getElementById('db-status').textContent = '🔴 DB Error: ' + e.code;
   }
   const now = new Date();
