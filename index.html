@@ -66,6 +66,9 @@ function installPWA(){
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <!-- Firebase (compat build — works with regular scripts, no module scope issues) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- Google API for Drive backup -->
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -1962,6 +1965,74 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 
   </div>
 
+  <!-- Google Drive Auto-Backup Card -->
+  <div class="glass" style="margin-bottom:22px;border-color:rgba(66,133,244,.35)">
+    <div style="display:flex;align-items:center;gap:14px;padding:20px 22px 16px">
+      <div style="font-size:2.2rem;flex-shrink:0">☁️</div>
+      <div style="flex:1">
+        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.05rem;margin-bottom:3px">
+          Google Drive Auto-Backup
+        </div>
+        <div style="font-size:.78rem;color:var(--text3);line-height:1.6">
+          Automatically saves a full backup to your Google Drive every day. Sign in once — it runs silently in the background.
+        </div>
+      </div>
+      <!-- Status badge -->
+      <div id="gdriveStatusBadge" style="flex-shrink:0;font-size:.72rem;font-weight:700;padding:4px 12px;border-radius:20px;background:rgba(255,255,255,.07);color:var(--text3);border:1px solid var(--glass-border)">
+        Not Connected
+      </div>
+    </div>
+
+    <div style="padding:0 22px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+      <!-- Sign-in button -->
+      <button id="gdriveSignInBtn" class="btn btn-ghost" style="border-color:#4285f4;color:#4285f4;gap:8px" onclick="gdriveSignIn()">
+        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M47.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.2 7.3-10.5 7.3-17.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.6v6.2C6.5 42.8 14.7 48 24 48z"/><path fill="#FBBC05" d="M10.8 28.8c-.5-1.4-.8-2.9-.8-4.8s.3-3.3.8-4.8v-6.2H2.6A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l8.2-6z"/><path fill="#EA4335" d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.6-6.6C35.9 2.5 30.4 0 24 0 14.7 0 6.5 5.2 2.6 13.2l8.2 6C12.7 13.6 17.9 9.5 24 9.5z"/></svg>
+        Sign in with Google
+      </button>
+      <!-- Sign-out (hidden until signed in) -->
+      <button id="gdriveSignOutBtn" class="btn btn-ghost" style="display:none;border-color:var(--text3);color:var(--text3)" onclick="gdriveSignOut()">
+        Sign Out
+      </button>
+      <!-- Manual backup now -->
+      <button id="gdriveBackupNowBtn" class="btn btn-ghost" style="display:none;border-color:#34a853;color:#34a853" onclick="gdriveBackupNow()">
+        ☁️ Backup Now
+      </button>
+      <!-- Toggle auto-backup on/off -->
+      <label id="gdriveAutoToggleWrap" style="display:none;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;color:var(--text2)">
+        <input type="checkbox" id="gdriveAutoToggle" onchange="gdriveToggleAuto(this.checked)" style="width:16px;height:16px;accent-color:#4285f4">
+        Daily auto-backup
+      </label>
+    </div>
+
+    <!-- Last backup info + log -->
+    <div id="gdriveInfoPanel" style="display:none;border-top:1px solid var(--glass-border);padding:14px 22px">
+      <div id="gdriveLastBackup" style="font-size:.78rem;color:var(--text3);margin-bottom:8px">Last backup: never</div>
+      <div id="gdriveLog" style="max-height:120px;overflow-y:auto;font-size:.75rem;color:var(--text3);line-height:1.8"></div>
+    </div>
+  </div>
+
+  <!-- Import & Danger cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:22px">
+
+    <!-- Import Backup -->
+    <div class="glass" style="padding:22px">
+      <div style="font-size:2rem;margin-bottom:10px">📂</div>
+      <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;margin-bottom:6px">Import Backup</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Restore all data from a previously downloaded JSON backup file. Current data will be replaced.</div>
+      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importBackupFile(this)">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;border-color:#38bdf8;color:#38bdf8" onclick="document.getElementById('importFileInput').click()">📂 Choose Backup File</button>
+    </div>
+
+    <!-- Delete All Data -->
+    <div class="glass" style="padding:22px;border-color:rgba(251,113,133,.35)">
+      <div style="font-size:2rem;margin-bottom:10px">🗑️</div>
+      <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;margin-bottom:6px;color:var(--red)">Delete All Data</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Permanently wipe everything — companies, products, shops, sessions, staff, expenses. Cannot be undone.</div>
+      <button class="btn" style="width:100%;justify-content:center;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.4);color:var(--red)" onclick="confirmDeleteDatabase()">🗑️ Delete Everything</button>
+    </div>
+
+  </div>
+
   <!-- Backup History (timestamped list of downloaded backups in this session) -->
   <div class="glass" style="margin-bottom:18px">
     <div class="sec-hdr">
@@ -2598,6 +2669,8 @@ function showAppPage(email){
   if(window.loadFromFirestore) loadFromFirestore();
   else { renderDash(); renderComps(); renderShops(); }
   setTimeout(_applyStaffRestrictions, 600);
+  // Init Google Drive auto-backup
+  gdriveOnAppLoad();
 }
 
 // (staff view-only is handled per-render via isOwner() checks)
@@ -2834,7 +2907,7 @@ function showPage(name){
   if(name==='staff') renderStaffTab();
   if(name==='expenses') { renderExpenses(); }
   if(name==='analytics') { renderAnalytics(); }
-  if(name==='backup') { renderBackupCloudInfo(); }
+  if(name==='backup') { renderBackupCloudInfo(); gdriveUpdateUI(!!_gdriveToken); }
 
   // Update mobile nav highlight for new pages
   const extMap={expenses:'mnExpenses',analytics:'mnAnalytics',backup:'mnBackup'};
@@ -8885,6 +8958,453 @@ function downloadBackup(type) {
   logEl.insertBefore(entry, logEl.firstChild);
 
   toast(`Backup downloaded ✓ (${size} KB)`, 'ok');
+}
+
+// ══════════════════════════════════════════════════════
+// GOOGLE DRIVE AUTO-BACKUP
+// Uses Google Identity Services (GIS) + Drive REST API v3
+// Stores backups in a folder called "Sivasakthi Backups"
+// Runs daily — checks on app load; skips if already done today
+// ══════════════════════════════════════════════════════
+
+const GDRIVE_CLIENT_ID = '1081431728040-gai0i6qen5hcoolu0j9td0164tkjda8q.apps.googleusercontent.com'; // ← Paste your Google OAuth Client ID here
+const GDRIVE_SCOPES    = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_FOLDER    = 'Sivasakthi Backups';
+const GDRIVE_LS_TOKEN  = 'gdrive_access_token';
+const GDRIVE_LS_LAST   = 'gdrive_last_backup_date';
+const GDRIVE_LS_AUTO   = 'gdrive_auto_enabled';
+
+let _gdriveToken   = null;
+let _gdriveFolderId = null;
+let _gdriveTokenClient = null;
+
+// ── Init Google Identity Services ──
+function gdriveInit() {
+  if (!GDRIVE_CLIENT_ID) return; // not configured yet
+  try {
+    _gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPES,
+      callback: (resp) => {
+        if (resp.error) { gdriveLog('❌ Auth error: ' + resp.error); return; }
+        _gdriveToken = resp.access_token;
+        localStorage.setItem(GDRIVE_LS_TOKEN, resp.access_token);
+        gdriveUpdateUI(true);
+        gdriveLog('✅ Signed in to Google Drive');
+        // Check if daily backup needed
+        gdriveCheckAndAutoBackup();
+      }
+    });
+    // Restore cached token state
+    const cached = localStorage.getItem(GDRIVE_LS_TOKEN);
+    if (cached) {
+      _gdriveToken = cached;
+      gdriveUpdateUI(true);
+      gdriveCheckAndAutoBackup();
+    }
+  } catch(e) { /* GIS not loaded yet */ }
+}
+
+// ── Sign In ──
+function gdriveSignIn() {
+  if (!GDRIVE_CLIENT_ID) {
+    toast('⚠️ Google Client ID not set. See setup instructions.', 'err');
+    return;
+  }
+  if (!_gdriveTokenClient) { gdriveInit(); }
+  if (_gdriveTokenClient) _gdriveTokenClient.requestAccessToken();
+}
+
+// ── Sign Out ──
+function gdriveSignOut() {
+  if (_gdriveToken) google.accounts.oauth2.revoke(_gdriveToken);
+  _gdriveToken    = null;
+  _gdriveFolderId = null;
+  localStorage.removeItem(GDRIVE_LS_TOKEN);
+  gdriveUpdateUI(false);
+  gdriveLog('👋 Signed out from Google Drive');
+  toast('Signed out from Google Drive', 'ok');
+}
+
+// ── Update UI based on sign-in state ──
+function gdriveUpdateUI(signedIn) {
+  const badge     = document.getElementById('gdriveStatusBadge');
+  const signInBtn = document.getElementById('gdriveSignInBtn');
+  const signOutBtn= document.getElementById('gdriveSignOutBtn');
+  const nowBtn    = document.getElementById('gdriveBackupNowBtn');
+  const autoWrap  = document.getElementById('gdriveAutoToggleWrap');
+  const infoPanel = document.getElementById('gdriveInfoPanel');
+  const autoToggle= document.getElementById('gdriveAutoToggle');
+  if (!badge) return;
+
+  if (signedIn) {
+    badge.textContent = '🟢 Connected';
+    badge.style.background = 'rgba(52,211,153,.15)';
+    badge.style.color = 'var(--green)';
+    badge.style.borderColor = 'rgba(52,211,153,.4)';
+    signInBtn.style.display  = 'none';
+    signOutBtn.style.display = '';
+    nowBtn.style.display     = '';
+    autoWrap.style.display   = 'flex';
+    infoPanel.style.display  = '';
+    const autoEnabled = localStorage.getItem(GDRIVE_LS_AUTO) !== 'false';
+    autoToggle.checked = autoEnabled;
+    // Show last backup date
+    const last = localStorage.getItem(GDRIVE_LS_LAST);
+    const lastEl = document.getElementById('gdriveLastBackup');
+    if (lastEl) lastEl.textContent = last ? 'Last backup: ' + last : 'Last backup: never';
+  } else {
+    badge.textContent = 'Not Connected';
+    badge.style.background = 'rgba(255,255,255,.07)';
+    badge.style.color = 'var(--text3)';
+    badge.style.borderColor = 'var(--glass-border)';
+    signInBtn.style.display  = '';
+    signOutBtn.style.display = 'none';
+    nowBtn.style.display     = 'none';
+    autoWrap.style.display   = 'none';
+    infoPanel.style.display  = 'none';
+  }
+}
+
+// ── Toggle auto backup ──
+function gdriveToggleAuto(enabled) {
+  localStorage.setItem(GDRIVE_LS_AUTO, enabled ? 'true' : 'false');
+  toast(enabled ? '✅ Daily auto-backup enabled' : '⏸️ Daily auto-backup paused', 'ok');
+  gdriveLog(enabled ? '✅ Auto-backup turned ON' : '⏸️ Auto-backup turned OFF');
+}
+
+// ── Check if backup needed today, then run ──
+function gdriveCheckAndAutoBackup() {
+  const autoEnabled = localStorage.getItem(GDRIVE_LS_AUTO) !== 'false';
+  if (!autoEnabled) return;
+  if (!_gdriveToken) return;
+  const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const last  = localStorage.getItem(GDRIVE_LS_LAST);
+  if (last === today) {
+    gdriveLog('✔️ Backup already done today (' + today + ')');
+    return;
+  }
+  // Delay 5 seconds after login so data finishes loading from Firestore
+  setTimeout(() => {
+    gdriveLog('⏳ Starting daily auto-backup…');
+    gdriveRunBackup(true);
+  }, 5000);
+}
+
+// ── Manual backup now ──
+function gdriveBackupNow() {
+  if (!_gdriveToken) { toast('Please sign in to Google Drive first', 'err'); return; }
+  gdriveRunBackup(false);
+}
+
+// ── Build backup JSON (same format as downloadBackup) ──
+function gdriveBuildBackupData() {
+  const now = new Date();
+  return {
+    meta: {
+      type: 'full',
+      exportedAt: now.toISOString(),
+      version: 'v34',
+      app: 'Sivasakthi Marketing',
+      autoBackup: true
+    },
+    companies: db.companies  || [],
+    products:  db.products   || [],
+    shops:     db.shops      || [],
+    staffList: db.staffList  || [],
+    preorders: db.preorders  || [],
+    expenses:  db.expenses   || [],
+    activityLog: (window._activityLog||[]).slice(-200)
+  };
+}
+
+// ── Get or create backup folder in Drive ──
+async function gdriveGetOrCreateFolder() {
+  if (_gdriveFolderId) return _gdriveFolderId;
+
+  // Search for existing folder
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name%3D'${encodeURIComponent(GDRIVE_FOLDER)}'%20and%20mimeType%3D'application%2Fvnd.google-apps.folder'%20and%20trashed%3Dfalse&fields=files(id,name)`,
+    { headers: { Authorization: 'Bearer ' + _gdriveToken } }
+  );
+  const searchData = await searchRes.json();
+
+  if (searchData.files && searchData.files.length > 0) {
+    _gdriveFolderId = searchData.files[0].id;
+    return _gdriveFolderId;
+  }
+
+  // Create new folder
+  const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + _gdriveToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: GDRIVE_FOLDER,
+      mimeType: 'application/vnd.google-apps.folder'
+    })
+  });
+  const folder = await createRes.json();
+  _gdriveFolderId = folder.id;
+  gdriveLog('📁 Created Drive folder: ' + GDRIVE_FOLDER);
+  return _gdriveFolderId;
+}
+
+// ── Delete old backups (keep last 7) ──
+async function gdriveCleanOldBackups(folderId) {
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+trashed%3Dfalse&orderBy=createdTime&fields=files(id,name,createdTime)`,
+      { headers: { Authorization: 'Bearer ' + _gdriveToken } }
+    );
+    const data = await res.json();
+    const files = data.files || [];
+    if (files.length > 7) {
+      const toDelete = files.slice(0, files.length - 7);
+      for (const f of toDelete) {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer ' + _gdriveToken }
+        });
+        gdriveLog('🗑️ Removed old backup: ' + f.name);
+      }
+    }
+  } catch(e) { /* non-critical */ }
+}
+
+// ── Upload file to Drive ──
+async function gdriveRunBackup(isAuto) {
+  try {
+    const now = new Date();
+    const stamp = now.toISOString().slice(0,10); // YYYY-MM-DD
+    const timeStr = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    const filename = `sivasakthi_backup_${stamp}.json`;
+    const data = gdriveBuildBackupData();
+    const json = JSON.stringify(data, null, 2);
+    const sizekb = (json.length/1024).toFixed(1);
+
+    // Show progress
+    const nowBtn = document.getElementById('gdriveBackupNowBtn');
+    if (nowBtn && !isAuto) { nowBtn.textContent = '⏳ Uploading…'; nowBtn.disabled = true; }
+
+    // Get/create folder
+    const folderId = await gdriveGetOrCreateFolder();
+
+    // Check if today's file already exists → update it
+    const checkRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name%3D'${filename}'+and+'${folderId}'+in+parents+and+trashed%3Dfalse&fields=files(id)`,
+      { headers: { Authorization: 'Bearer ' + _gdriveToken } }
+    );
+    const checkData = await checkRes.json();
+    const existingId = checkData.files && checkData.files.length > 0 ? checkData.files[0].id : null;
+
+    let uploadRes;
+    if (existingId) {
+      // Update existing file
+      uploadRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: 'Bearer ' + _gdriveToken,
+          'Content-Type': 'application/json'
+        },
+        body: json
+      });
+    } else {
+      // Create new file with metadata
+      const boundary = 'backup_boundary_' + Date.now();
+      const metaPart = JSON.stringify({ name: filename, parents: [folderId] });
+      const body = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${metaPart}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${json}\r\n--${boundary}--`;
+      uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + _gdriveToken,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: body
+      });
+    }
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error('Upload failed: ' + errText.substring(0,120));
+    }
+
+    // Success!
+    const dateTimeStr = stamp + ' ' + timeStr;
+    localStorage.setItem(GDRIVE_LS_LAST, dateTimeStr);
+
+    // Update last backup label
+    const lastEl = document.getElementById('gdriveLastBackup');
+    if (lastEl) lastEl.textContent = 'Last backup: ' + dateTimeStr;
+
+    // Update status badge
+    const badge = document.getElementById('gdriveStatusBadge');
+    if (badge) { badge.textContent = '🟢 Connected · Backed up ' + stamp; }
+
+    gdriveLog('✅ Backup saved to Drive: ' + filename + ' (' + sizekb + ' KB)' + (isAuto ? ' [auto]' : ' [manual]'));
+    logActivity('☁️ Google Drive backup: ' + filename);
+
+    if (!isAuto) toast('✅ Backup saved to Google Drive! (' + sizekb + ' KB)', 'ok', 'pay');
+
+    // Clean old backups (keep 7)
+    gdriveCleanOldBackups(folderId);
+
+  } catch(err) {
+    gdriveLog('❌ Backup failed: ' + err.message);
+    if (!isAuto) toast('❌ Drive backup failed: ' + err.message, 'err');
+    // If token expired, force re-auth
+    if (err.message.includes('401') || err.message.includes('403')) {
+      _gdriveToken = null;
+      localStorage.removeItem(GDRIVE_LS_TOKEN);
+      gdriveUpdateUI(false);
+      gdriveLog('🔑 Token expired — please sign in again');
+    }
+  } finally {
+    const nowBtn = document.getElementById('gdriveBackupNowBtn');
+    if (nowBtn) { nowBtn.textContent = '☁️ Backup Now'; nowBtn.disabled = false; }
+  }
+}
+
+// ── Add a log line ──
+function gdriveLog(msg) {
+  const el = document.getElementById('gdriveLog');
+  if (!el) return;
+  const time = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const line = document.createElement('div');
+  line.textContent = time + '  ' + msg;
+  el.insertBefore(line, el.firstChild);
+}
+
+// ── Called from showAppPage — init Drive on every login ──
+function gdriveOnAppLoad() {
+  // Wait for GIS to load
+  const tryInit = (attempts) => {
+    if (typeof google !== 'undefined' && google.accounts) {
+      gdriveInit();
+    } else if (attempts > 0) {
+      setTimeout(() => tryInit(attempts - 1), 500);
+    }
+  };
+  tryInit(10);
+}
+
+// ══════════════════════════════════════════
+// IMPORT BACKUP — restore from JSON file
+// ══════════════════════════════════════════
+function importBackupFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Basic validation
+      if (!data.meta || !data.meta.app) {
+        toast('⚠️ Invalid file — not a recognised backup', 'err');
+        input.value = '';
+        return;
+      }
+      const type       = data.meta.type || 'full';
+      const exportedAt = data.meta.exportedAt
+        ? new Date(data.meta.exportedAt).toLocaleString('en-IN')
+        : 'Unknown date';
+      const sizekb = (e.target.result.length / 1024).toFixed(1);
+
+      // Confirm dialog
+      const answer = prompt(
+        '📂 IMPORT BACKUP\n\n' +
+        'Type: ' + type + '\n' +
+        'Exported: ' + exportedAt + '\n' +
+        'Size: ' + sizekb + ' KB\n\n' +
+        '⚠️  This will REPLACE all your current data.\n' +
+        'Download a fresh backup first if needed.\n\n' +
+        'Type  YES  to confirm import:'
+      );
+      if (!answer || answer.trim().toUpperCase() !== 'YES') {
+        toast('Import cancelled', 'err');
+        input.value = '';
+        return;
+      }
+
+      // Apply data fields that exist in the backup
+      if (data.companies !== undefined) db.companies = data.companies;
+      if (data.products  !== undefined) db.products  = data.products;
+      if (data.shops     !== undefined) db.shops     = data.shops;
+      if (data.staffList !== undefined) db.staffList = data.staffList;
+      if (data.preorders !== undefined) db.preorders = data.preorders;
+      if (data.expenses  !== undefined) db.expenses  = data.expenses;
+
+      // Push to Firestore
+      if (window.saveToFirestore) saveToFirestore();
+
+      toast('✅ Backup imported! (' + type + ' · ' + exportedAt + ')', 'ok', 'pay');
+      logActivity('📂 Backup imported: ' + type + ' from ' + exportedAt);
+      input.value = '';
+
+      // Refresh current view
+      setTimeout(() => {
+        renderDash && renderDash();
+        renderComps && renderComps();
+        renderShops && renderShops();
+        renderBackupCloudInfo && renderBackupCloudInfo();
+      }, 600);
+
+    } catch(err) {
+      toast('⚠️ Failed to read file: ' + err.message, 'err');
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ══════════════════════════════════════════
+// DELETE DATABASE — wipe all data
+// ══════════════════════════════════════════
+function confirmDeleteDatabase() {
+  const step1 = prompt(
+    '🗑️  DELETE ALL DATA\n\n' +
+    'This will permanently delete EVERYTHING:\n' +
+    '• All companies & products\n' +
+    '• All shops, customers & sessions\n' +
+    '• All payments, staff, expenses\n' +
+    '• Cloud (Firebase) data too\n\n' +
+    '⚠️  Download a backup FIRST — this cannot be undone!\n\n' +
+    'Type  DELETE  to continue:'
+  );
+  if (!step1 || step1.trim().toUpperCase() !== 'DELETE') {
+    toast('Delete cancelled', 'err');
+    return;
+  }
+
+  const step2 = prompt('⚠️  FINAL WARNING\n\nAre you 100% sure?\nType  YES  to permanently delete everything:');
+  if (!step2 || step2.trim().toUpperCase() !== 'YES') {
+    toast('Delete cancelled', 'err');
+    return;
+  }
+
+  // Wipe local db object
+  db.companies = [];
+  db.products  = [];
+  db.shops     = [];
+  db.staffList = [];
+  db.preorders = [];
+  db.expenses  = [];
+
+  // Wipe Firestore
+  if (window.saveToFirestore) saveToFirestore();
+
+  logActivity('🗑️ Full database deleted by user');
+  toast('🗑️ All data deleted and cloud wiped', 'err', 'pay');
+
+  // Refresh all views
+  setTimeout(() => {
+    renderDash && renderDash();
+    renderComps && renderComps();
+    renderShops && renderShops();
+    renderBackupCloudInfo && renderBackupCloudInfo();
+  }, 600);
 }
 
 function renderBackupCloudInfo() {
