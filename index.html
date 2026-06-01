@@ -2255,11 +2255,13 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       <div style="font-size:.72rem;color:var(--text3);margin-bottom:3px">Previous Unpaid Balance</div>
       <div id="prevBalAmt" style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700;color:var(--red)"></div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px">
+    <div style="margin:14px 0 8px">
       <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Products</div>
-      <button class="btn btn-ghost btn-sm" onclick="addSellRow()">＋ Add Product</button>
     </div>
     <div id="sellRows"></div>
+    <div style="margin-top:8px">
+      <button class="btn btn-ghost btn-sm" onclick="addSellRow()" style="width:100%;justify-content:center">＋ Add Product</button>
+    </div>
     <div class="fg" style="margin-top:12px">
       <label>Customer Number</label>
       <input type="text" id="billCustomerNumber" placeholder="e.g. 9876543210" autocomplete="off" inputmode="numeric">
@@ -4825,7 +4827,6 @@ function renderSellRows(){
           oninput="prodAC(this,'${r.id}')"
           onblur="(()=>{const row=sellRows.find(x=>x.id==='${r.id}');if(row&&this.value.trim())row.name=this.value.trim();})()"
           autocomplete="off" id="pi-${r.id}">
-        <div class="ac-list" id="psu-${r.id}" style="display:none"></div>
         ${priceHint}
       </div>
       <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updRowPrice('${r.id}',this.value)" id="rsp-${r.id}">
@@ -4837,37 +4838,32 @@ function renderSellRows(){
 }
 function prodAC(inp,rowId){
   const q=inp.value.toLowerCase();
-  const su=document.getElementById('psu-'+rowId);
   // Always sync the typed name into the row data
   const r=sellRows.find(x=>x.id===rowId);
   if(r){ r.name=inp.value.trim(); if(!inp.value.trim()){r.productId='';} }
-  if(!q){su.style.display='none';updSellSum();return;}
+  if(!q){hidePortalAC();updSellSum();return;}
   const m=db.products.filter(p=>p.name.toLowerCase().includes(q)&&p.qty>0);
-  if(!m.length){su.style.display='none';updSellSum();return;}
+  if(!m.length){hidePortalAC();updSellSum();return;}
   const custTag = _getSellCustomerTag();
-  su.style.display='';
-  su.innerHTML=m.map(p=>{
+  const html=m.map(p=>{
     const effectivePrice = getEffectiveSellPrice(p, custTag);
     const isRetail = custTag==='Retail' && p.retailPrice && p.retailPrice>0;
-    return `
-    <div class="ac-item" onclick="selProdRow('${rowId}','${p.id}')">
+    return `<div class="ac-item" onclick="selProdRow('${rowId}','${p.id}');hidePortalAC()">
       <div><span>${p.name}</span><span class="ac-sub"> · Stock: ${p.qty}</span></div>
       <span class="ac-price">${fmt(effectivePrice)}${isRetail?'<span style="font-size:.65rem;color:#60a5fa;margin-left:4px">🛒</span>':''}</span>
     </div>`;
   }).join('');
+  showPortalAC(inp, html);
 }
 function selProdRow(rowId,prodId){
   const p=db.products.find(x=>x.id===prodId);
   const r=sellRows.find(x=>x.id===rowId);
   const custTag = _getSellCustomerTag();
   const effectivePrice = getEffectiveSellPrice(p, custTag);
-  // Always use the LATEST sell price from product (or retail price if applicable)
   if(r){r.productId=p.id;r.name=p.name;r.sellPrice=effectivePrice;r.qty=1;}
-  document.getElementById('psu-'+rowId).style.display='none';
   renderSellRows();
   setTimeout(()=>{
     const el=document.getElementById('pi-'+rowId);if(el)el.value=p.name;
-    // Auto-fill sell price field with latest price
     const sp=document.getElementById('rsp-'+rowId);if(sp)sp.value=effectivePrice;
   },10);
 }
@@ -6396,7 +6392,7 @@ function printInvoice(shopId, sessId){
       <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;font-size:13px;font-weight:600">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
     </tr>`).join('');
 
-  const stampHtml = lastPayDate ? `
+  const stampHtml = (lastPayDate && sess.balance === 0) ? `
     <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);
       border:3px solid #333;border-radius:8px;padding:14px 24px;opacity:0.18;
       pointer-events:none;text-align:center;white-space:nowrap">
@@ -7236,110 +7232,117 @@ function downloadPDFInvoice(shopId, sessId){
     lastPayDate=sorted[0].date||'';
   }
 
-  const pageW=210; const margin=14;
+  const pageW=210; const pageH=297; const margin=14;
 
-  // ── Top border lines ──
+  // ── Helper: draw compact page header (used on continuation pages) ──
+  function drawPageHeader(isContinued){
+    doc.setDrawColor(0); doc.setLineWidth(0.8);
+    doc.line(margin,8,pageW-margin,8);
+    doc.setLineWidth(0.25); doc.line(margin,10,pageW-margin,10);
+    doc.setFont('times','bold'); doc.setFontSize(16); doc.setTextColor(0);
+    doc.text('Sivasakthi Marketing', margin, 18);
+    doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100);
+    if(isContinued){
+      doc.text('Bill / Invoice Receipt  ·  Continued ('+sh.name+'  —  '+fmtD(sess.date)+')', margin, 24);
+    } else {
+      doc.text('Bill / Invoice Receipt', margin, 24);
+    }
+    doc.setLineWidth(0.25); doc.setDrawColor(0);
+    doc.line(margin,27,pageW-margin,27);
+  }
+
+  // ── First page header ──
   doc.setDrawColor(0); doc.setLineWidth(1.2);
   doc.line(margin,10,pageW-margin,10);
   doc.setLineWidth(0.3);
   doc.line(margin,12.5,pageW-margin,12.5);
 
   // ── Company Name ──
-  doc.setFont('times','bold');
-  doc.setFontSize(22);
-  doc.setTextColor(0);
-  doc.text('Sivasakthi Marketing', margin, 22);
+  doc.setFont('times','bold'); doc.setFontSize(18); doc.setTextColor(0);
+  doc.text('Sivasakthi Marketing', margin, 21);
 
-  // ── Subtitle ──
-  doc.setFont('times','italic');
-  doc.setFontSize(9);
-  doc.setTextColor(100);
-  doc.text('Bill / Invoice Receipt', margin, 29);
-
-  // ── Date on right ──
-  doc.setFont('times','bold');
-  doc.setFontSize(9);
-  doc.setTextColor(0);
-  doc.text('Bill Date:', pageW-margin, 22, {align:'right'});
+  // ── Subtitle & Date ──
+  doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
+  doc.text('Bill / Invoice Receipt', margin, 27);
+  doc.setFont('times','bold'); doc.setFontSize(8); doc.setTextColor(0);
+  doc.text('Bill Date:', pageW-margin, 21, {align:'right'});
   doc.setFont('times','normal');
-  doc.text(fmtD(sess.date), pageW-margin, 28, {align:'right'});
+  doc.text(fmtD(sess.date), pageW-margin, 26, {align:'right'});
 
   // ── Divider ──
   doc.setLineWidth(0.3); doc.setDrawColor(0);
-  doc.line(margin,32,pageW-margin,32);
+  doc.line(margin,30,pageW-margin,30);
 
-  // ── Meta box (2x2 grid) ──
-  const mBoxY=35; const mBoxH=22; const colW=(pageW-2*margin)/2;
-  doc.setDrawColor(0); doc.setLineWidth(0.25);
+  // ── Meta box (2x2 grid) — compact ──
+  const mBoxY=32; const mBoxH=17; const colW=(pageW-2*margin)/2;
+  doc.setDrawColor(0); doc.setLineWidth(0.22);
   doc.rect(margin,mBoxY,pageW-2*margin,mBoxH);
   doc.line(margin+colW,mBoxY,margin+colW,mBoxY+mBoxH);
   doc.line(margin,mBoxY+mBoxH/2,pageW-margin,mBoxY+mBoxH/2);
 
-  const metaLabelStyle=()=>{doc.setFont('times','italic');doc.setFontSize(7.5);doc.setTextColor(120);};
-  const metaValStyle=()=>{doc.setFont('times','bold');doc.setFontSize(10);doc.setTextColor(0);};
+  const metaLabelStyle=()=>{doc.setFont('times','italic');doc.setFontSize(6.5);doc.setTextColor(120);};
+  const metaValStyle=()=>{doc.setFont('times','bold');doc.setFontSize(9);doc.setTextColor(0);};
 
   // Cell 1: To
-  metaLabelStyle(); doc.text('TO (CUSTOMER)',margin+3,mBoxY+4);
-  metaValStyle(); doc.text(sh.name,margin+3,mBoxY+9);
+  metaLabelStyle(); doc.text('TO (CUSTOMER)',margin+3,mBoxY+3.5);
+  metaValStyle(); doc.text(sh.name,margin+3,mBoxY+8);
   // Cell 2: Contact
-  metaLabelStyle(); doc.text('CONTACT',margin+colW+3,mBoxY+4);
-  metaValStyle(); doc.text(contact,margin+colW+3,mBoxY+9);
+  metaLabelStyle(); doc.text('CONTACT',margin+colW+3,mBoxY+3.5);
+  metaValStyle(); doc.text(contact,margin+colW+3,mBoxY+8);
   // Cell 3: Handled By
-  metaLabelStyle(); doc.text('HANDLED BY',margin+3,mBoxY+mBoxH/2+4);
-  metaValStyle(); doc.text(handledBy,margin+3,mBoxY+mBoxH/2+9);
+  metaLabelStyle(); doc.text('HANDLED BY',margin+3,mBoxY+mBoxH/2+3.5);
+  metaValStyle(); doc.text(handledBy,margin+3,mBoxY+mBoxH/2+8);
   // Cell 4: Payment Mode
-  metaLabelStyle(); doc.text('PAYMENT MODE',margin+colW+3,mBoxY+mBoxH/2+4);
-  metaValStyle(); doc.text(sess.payMethod||'—',margin+colW+3,mBoxY+mBoxH/2+9);
+  metaLabelStyle(); doc.text('PAYMENT MODE',margin+colW+3,mBoxY+mBoxH/2+3.5);
+  metaValStyle(); doc.text(sess.payMethod||'—',margin+colW+3,mBoxY+mBoxH/2+8);
 
-  // ── Table header ──
-  let y = mBoxY + mBoxH + 8;
-  doc.setFontSize(7.5); doc.setFont('times','bold');
-  doc.setTextColor(120);
-  doc.text('#', margin+2, y);
-  doc.text('PRODUCT', margin+10, y);
-  doc.text('UNIT PRICE', 130, y, {align:'right'});
-  doc.text('QTY', 152, y, {align:'right'});
-  doc.text('AMOUNT', pageW-margin, y, {align:'right'});
-  y+=2;
-  doc.setLineWidth(0.5); doc.setDrawColor(0);
-  doc.line(margin,y,pageW-margin,y);
-  y+=6;
-
-  // ── Items — split across pages if > 15 products ──
-  const ITEMS_PER_PAGE = 15;
-  const allItems = sess.items;
-  const needsPage2 = allItems.length > ITEMS_PER_PAGE;
-  const page1Items = needsPage2 ? allItems.slice(0, ITEMS_PER_PAGE) : allItems;
-  const page2Items = needsPage2 ? allItems.slice(ITEMS_PER_PAGE) : [];
-
-  // Helper to draw a page footer (no signature — used for page 1 when overflow)
-  function drawContinuedFooter(){
-    doc.setLineWidth(0.3); doc.setDrawColor(0);
-    doc.line(margin,285,pageW-margin,285);
-    doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
-    doc.text('Sivasakthi Marketing  ·  Continued on next page…', pageW/2, 290, {align:'center'});
-  }
-
-  // Helper to draw the table header (reused on page 2)
+  // ── Table header helper (reused across pages) ──
   function drawTableHeader(yPos){
-    doc.setFontSize(7.5); doc.setFont('times','bold'); doc.setTextColor(120);
+    doc.setFontSize(7); doc.setFont('times','bold'); doc.setTextColor(120);
     doc.text('#', margin+2, yPos);
     doc.text('PRODUCT', margin+10, yPos);
     doc.text('UNIT PRICE', 130, yPos, {align:'right'});
     doc.text('QTY', 152, yPos, {align:'right'});
     doc.text('AMOUNT', pageW-margin, yPos, {align:'right'});
     yPos+=2;
-    doc.setLineWidth(0.5); doc.setDrawColor(0);
+    doc.setLineWidth(0.4); doc.setDrawColor(0);
     doc.line(margin,yPos,pageW-margin,yPos);
-    return yPos+6;
+    return yPos+5;
   }
 
-  doc.setFont('times','normal'); doc.setFontSize(9.5); doc.setTextColor(0);
-  page1Items.forEach((it,i)=>{
-    if(i%2===1){
-      doc.setFillColor(250,250,250);
-      doc.rect(margin,y-5,pageW-2*margin,7,'F');
+  // ── First page items start ──
+  let y = drawTableHeader(mBoxY + mBoxH + 6);
+
+  // ── Items — smart multi-page pagination (25 items per page) ──
+  const ITEMS_PER_PAGE = 25;
+  const allItems = sess.items;
+
+  // Helper to draw "continued" footer on current page
+  function drawContinuedFooter(){
+    doc.setLineWidth(0.25); doc.setDrawColor(0);
+    doc.line(margin,285,pageW-margin,285);
+    doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100);
+    doc.text('Sivasakthi Marketing  ·  Continued on next page…', pageW/2, 290, {align:'center'});
+  }
+
+  // Draw item rows, auto-paginating every ITEMS_PER_PAGE rows
+  doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(0);
+  let pageItemCount = 0;
+  let isFirstItemPage = true;
+  allItems.forEach((it, i)=>{
+    if(pageItemCount > 0 && pageItemCount % ITEMS_PER_PAGE === 0){
+      drawContinuedFooter();
+      doc.addPage();
+      drawPageHeader(true);
+      y = drawTableHeader(32);
+      pageItemCount = 0;
+      isFirstItemPage = false;
     }
+    if(pageItemCount%2===1){
+      doc.setFillColor(250,250,250);
+      doc.rect(margin,y-4.5,pageW-2*margin,6,'F');
+    }
+    doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(0);
     doc.text(String(i+1), margin+2, y);
     doc.text(it.name.substring(0,38), margin+10, y);
     doc.text('Rs.'+it.sellPrice.toFixed(2), 130, y, {align:'right'});
@@ -7347,51 +7350,26 @@ function downloadPDFInvoice(shopId, sessId){
     doc.setFont('times','bold');
     doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), pageW-margin, y, {align:'right'});
     doc.setFont('times','normal');
-    y+=8;
+    y+=6;
+    pageItemCount++;
   });
 
-  // ── If overflow: draw "continued" footer on page 1 and start page 2 ──
-  if(needsPage2){
-    drawContinuedFooter();
-    doc.addPage();
-
-    // Page 2 header
-    doc.setDrawColor(0); doc.setLineWidth(1.2);
-    doc.line(margin,10,pageW-margin,10);
-    doc.setLineWidth(0.3); doc.line(margin,12.5,pageW-margin,12.5);
-    doc.setFont('times','bold'); doc.setFontSize(18); doc.setTextColor(0);
-    doc.text('Sivasakthi Marketing', margin, 21);
-    doc.setFont('times','italic'); doc.setFontSize(8.5); doc.setTextColor(100);
-    doc.text('Bill / Invoice Receipt  ·  Continued ('+sh.name+'  —  '+fmtD(sess.date)+')', margin, 28);
-    doc.setLineWidth(0.3); doc.setDrawColor(0);
-    doc.line(margin,31,pageW-margin,31);
-
-    // Page 2 table header
-    y = drawTableHeader(36);
-
-    doc.setFont('times','normal'); doc.setFontSize(9.5); doc.setTextColor(0);
-    page2Items.forEach((it,i)=>{
-      const globalIdx = ITEMS_PER_PAGE + i;
-      if(i%2===1){
-        doc.setFillColor(250,250,250);
-        doc.rect(margin,y-5,pageW-2*margin,7,'F');
-      }
-      doc.text(String(globalIdx+1), margin+2, y);
-      doc.text(it.name.substring(0,38), margin+10, y);
-      doc.text('Rs.'+it.sellPrice.toFixed(2), 130, y, {align:'right'});
-      doc.text(String(it.qty), 152, y, {align:'right'});
-      doc.setFont('times','bold');
-      doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), pageW-margin, y, {align:'right'});
-      doc.setFont('times','normal');
-      y+=8;
-    });
-  }
-
   // ── Totals section ──
-  y += 4;
+  y += 3;
 
   const totalReturned = (sess.returns||[]).reduce((a,r)=>a+r.amount,0);
-  const originalBill  = newBill + totalReturned;  // what was billed before returns
+  const originalBill  = newBill + totalReturned;
+
+  // ── Compute total qty & weight for summary line ──
+  const _pdfTotalQtyMap = {};
+  const _pdfTotalWtMap  = {};
+  sess.items.forEach(it=>{
+    if(it.qty>0){ const u=it.qtyUnit||'Pc'; _pdfTotalQtyMap[u]=(_pdfTotalQtyMap[u]||0)+it.qty; }
+    if(it.weight>0){ const u=it.weightUnit||'kg'; _pdfTotalWtMap[u]=(_pdfTotalWtMap[u]||0)+it.weight; }
+  });
+  const _pdfQtyStr = Object.entries(_pdfTotalQtyMap).map(([u,v])=>`${v} ${u}`).join(' + ')||'';
+  const _pdfWtStr  = Object.entries(_pdfTotalWtMap).map(([u,v])=>`${parseFloat(v.toFixed(3))} ${u}`).join(' + ')||'';
+  const _pdfSummary = [_pdfQtyStr, _pdfWtStr].filter(Boolean).join('  |  ');
 
   const disc = sess.discount;
   const subTotalForPdf = disc ? newBill+disc.amount : newBill;
@@ -7410,14 +7388,22 @@ function downloadPDFInvoice(shopId, sessId){
     ['Paid ('+sess.payMethod+')', sess.paid],
   ];
 
-  const rowH   = 8;
-  const padTop = 5;
-  const padBot = 4;
+  const rowH   = 6;
+  const padTop = 3;
+  const padBot = 3;
   const boxX   = 119;
   const boxW   = pageW - margin - boxX + margin;
   const boxH   = padTop + tRows.length * rowH + padBot;
+  const balBoxH = 10;
+  const summaryTotalH = boxH + balBoxH + 18;
 
-  // Draw summary box first (no overlap)
+  // ── Smart page break: if summary won't fit, push to new page ──
+  if(y + summaryTotalH > pageH - 14){
+    doc.addPage();
+    y = 12;
+  }
+
+  // Draw summary box
   doc.setDrawColor(180); doc.setLineWidth(0.3);
   doc.rect(boxX, y, boxW, boxH, 'S');
   doc.setDrawColor(0);
@@ -7426,7 +7412,7 @@ function downloadPDFInvoice(shopId, sessId){
   let ry = y + padTop + 3;
   tRows.forEach(([label, val]) => {
     const isReturn = label.startsWith('(-)');
-    doc.setFont('times', isReturn?'italic':'normal'); doc.setFontSize(9.5);
+    doc.setFont('times', isReturn?'italic':'normal'); doc.setFontSize(7.5);
     doc.setTextColor(isReturn ? 100 : 60);
     doc.text(label, boxX + 3, ry);
     doc.setFont('times','bold'); doc.setTextColor(isReturn ? 100 : 0);
@@ -7434,18 +7420,22 @@ function downloadPDFInvoice(shopId, sessId){
     ry += rowH;
   });
 
-  // ── Balance Due box — sits cleanly below summary box ──
+  // ── Balance Due box ──
   y = y + boxH + 3;
-  const balBoxH = 11;
   doc.setDrawColor(0); doc.setLineWidth(0.5);
   doc.rect(boxX - 1, y, boxW + 1, balBoxH, 'S');
-  doc.setFont('times','bold'); doc.setFontSize(11); doc.setTextColor(0);
-  doc.text('Balance Due', boxX + 2, y + 7.5);
+  doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(0);
+  doc.text('Balance Due', boxX + 2, y + 4);
+  if(_pdfSummary){
+    doc.setFont('times','normal'); doc.setFontSize(6); doc.setTextColor(80);
+    doc.text(_pdfSummary, boxX + 2, y + 8);
+  }
   const balText = sess.balance > 0 ? 'Rs.'+sess.balance.toFixed(2) : 'SETTLED ✓';
+  doc.setFont('times','bold'); doc.setFontSize(9);
   doc.setTextColor(sess.balance > 0 ? 0 : 80);
-  doc.text(balText, pageW - margin, y + 7.5, {align:'right'});
+  doc.text(balText, pageW - margin, y + 6.5, {align:'right'});
   doc.setTextColor(0);
-  y += balBoxH + 8;
+  y += balBoxH + 6;
 
   // ── Bill Notes in PDF ──
   if(sess.notes&&sess.notes.trim()){
@@ -7461,13 +7451,13 @@ function downloadPDFInvoice(shopId, sessId){
     y = noteY + 12 + 3;
   }
 
-  // ── PAID stamp if settled (always on the last page) ──
-  if(lastPayDate||sess.settled){
+  // ── PAID stamp only when fully settled (balance = 0) ──
+  if(sess.balance === 0 && (lastPayDate||sess.settled)){
     doc.saveGraphicsState();
     doc.setFont('helvetica','bold');
     doc.setFontSize(42);
     doc.setTextColor(200,200,200);
-    const cx=pageW/2, cy=needsPage2?150:150;
+    const cx=pageW/2, cy=150;
     doc.text('PAID', cx, cy, {align:'center', angle:330});
     doc.setFontSize(12);
     doc.text(fmtD(lastPayDate), cx, cy+12, {align:'center', angle:330});
@@ -7476,13 +7466,13 @@ function downloadPDFInvoice(shopId, sessId){
   }
 
   // ── Footer with signature (always on last page) ──
-  doc.setLineWidth(0.3); doc.setDrawColor(0);
+  doc.setLineWidth(0.25); doc.setDrawColor(0);
   doc.line(margin,278,pageW-margin,278);
-  doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
-  doc.text('Sivasakthi Marketing  ·  Thank you for your business', pageW/2, 283, {align:'center'});
-  doc.line(pageW-margin-45,270,pageW-margin,270);
-  doc.setFont('times','normal');
-  doc.text('Authorized Signature', pageW-margin, 274.5, {align:'right'});
+  doc.setFont('times','italic'); doc.setFontSize(7); doc.setTextColor(120);
+  doc.text('Sivasakthi Marketing  ·  Thank you for your business', pageW/2, 282, {align:'center'});
+  doc.line(pageW-margin-40,272,pageW-margin,272);
+  doc.setFont('times','normal'); doc.setFontSize(6.5); doc.setTextColor(120);
+  doc.text('Authorized Signature', pageW-margin, 275.5, {align:'right'});
 
   doc.save('Bill-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
   toast('PDF Bill downloaded 📄','ok','pay');
@@ -9765,5 +9755,33 @@ function deletePayment(){
     </div>
   </div>
 </div>
+<!-- Portal AC — renders outside modal stacking context so it's always on top -->
+<div id="acPortal" style="display:none;position:fixed;z-index:99999;min-width:200px;max-width:420px;background:var(--nav-bg);border:1px solid var(--glass-border);border-radius:12px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.6);backdrop-filter:blur(20px);max-height:260px;overflow-y:auto"></div>
+<script>
+function showPortalAC(inputEl,html){
+  var portal=document.getElementById('acPortal');
+  portal.innerHTML=html;
+  var rect=inputEl.getBoundingClientRect();
+  portal.style.display='';
+  portal.style.left=rect.left+'px';
+  portal.style.width=rect.width+'px';
+  var spaceBelow=window.innerHeight-rect.bottom;
+  if(spaceBelow>=180||spaceBelow>=rect.top){
+    portal.style.top=(rect.bottom+4)+'px';portal.style.bottom='auto';
+  }else{
+    portal.style.bottom=(window.innerHeight-rect.top+4)+'px';portal.style.top='auto';
+  }
+}
+function hidePortalAC(){
+  var p=document.getElementById('acPortal');if(p)p.style.display='none';
+}
+document.addEventListener('click',function(e){
+  var p=document.getElementById('acPortal');
+  if(p&&!p.contains(e.target))p.style.display='none';
+},true);
+document.addEventListener('scroll',function(){
+  var p=document.getElementById('acPortal');if(p)p.style.display='none';
+},true);
+</script>
 </body>
 </html>
