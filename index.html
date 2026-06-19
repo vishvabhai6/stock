@@ -2172,7 +2172,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
       <div class="fg"><label>Buy Price (₹)</label><input type="number" id="pBuy" placeholder="0.00" oninput="calcMargin()"></div>
       <div class="fg"><label>Sell Price (₹)</label><input type="number" id="pSell" placeholder="0.00" oninput="calcMargin()"></div>
       <div class="fg"><label>Margin (%)</label><input type="text" id="pMargin" readonly style="opacity:.6;cursor:default"></div>
-      <div class="fg" id="pQtyField"><label id="pQtyLabel">Stock Qty</label><input type="number" id="pQty" placeholder="0" min="0"></div>
+      <div class="fg" id="pQtyField"><label id="pQtyLabel">Stock Qty</label><input type="number" id="pQty" placeholder="0" min="0" step="0.001"></div>
     </div>
     <!-- Retail Price field -->
     <div class="fg" id="pRetailPriceField" style="margin-top:4px">
@@ -2327,7 +2327,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="form-2col">
       <div class="fg">
         <label>Damaged Qty</label>
-        <input type="number" id="dmgQty" min="1" placeholder="0" oninput="updDmgPreview()">
+        <input type="number" id="dmgQty" min="1" placeholder="0" step="0.001" oninput="updDmgPreview()">
       </div>
       <div class="fg">
         <label>Date</label>
@@ -4026,7 +4026,7 @@ function renderProds(){
       <td>
         <span class="badge ${p.qty<=5?'bg-red':'bg'}" id="sqbadge-${p.id}" style="cursor:pointer" title="Click to edit stock" onclick="inlineEditStock('${p.id}')">${p.qty}</span>
         <span id="sqedit-${p.id}" style="display:none;gap:4px;align-items:center">
-          <input type="number" min="0" id="sqinp-${p.id}" value="${p.qty}"
+          <input type="number" min="0" step="0.001" id="sqinp-${p.id}" value="${p.qty}"
             style="width:64px;background:var(--input-bg);border:1px solid var(--accent);border-radius:8px;padding:4px 7px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.84rem;text-align:center;outline:none"
             onkeydown="if(event.key==='Enter')saveInlineStock('${p.id}');if(event.key==='Escape')cancelInlineStock('${p.id}')">
           <button onclick="saveInlineStock('${p.id}')" style="background:rgba(134,239,172,.18);border:1px solid rgba(134,239,172,.4);border-radius:7px;padding:3px 8px;color:var(--green);font-size:.78rem;cursor:pointer;font-weight:700" title="Save">✓</button>
@@ -4294,7 +4294,7 @@ function openProdModal(id=null, defaultMode='restock'){
 function saveProd(){
   const buy=parseFloat(document.getElementById('pBuy').value)||0;
   const sell=parseFloat(document.getElementById('pSell').value)||0;
-  const qty=parseInt(document.getElementById('pQty').value)||0;
+  const qty=parseFloat(document.getElementById('pQty').value)||0;
   const date=document.getElementById('pDate').value||today();
   const note=document.getElementById('pNote').value.trim();
   const retailPriceVal=parseFloat(document.getElementById('pRetailPrice').value)||0;
@@ -4497,7 +4497,7 @@ function selDmgProd(id){
 function updDmgPreview(){
   if(!_dmgProdId){ document.getElementById('dmgPreview').style.display='none'; return; }
   const p = db.products.find(x => x.id === _dmgProdId);
-  const qty = parseInt(document.getElementById('dmgQty').value)||0;
+  const qty = parseFloat(document.getElementById('dmgQty').value)||0;
   const prev = document.getElementById('dmgPreview');
   if(qty <= 0){ prev.style.display='none'; return; }
   const newStock = p.qty - qty;
@@ -4514,7 +4514,7 @@ function updDmgPreview(){
 function saveDamage(){
   if(!_dmgProdId){ toast('Select a product first','err'); return; }
   const p = db.products.find(x => x.id === _dmgProdId);
-  const qty = parseInt(document.getElementById('dmgQty').value)||0;
+  const qty = parseFloat(document.getElementById('dmgQty').value)||0;
   const date = document.getElementById('dmgDate').value || today();
   const note = document.getElementById('dmgNote').value.trim();
   if(qty <= 0){ toast('Enter a valid damaged quantity','err'); return; }
@@ -4830,7 +4830,7 @@ function renderSellRows(){
         ${priceHint}
       </div>
       <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updRowPrice('${r.id}',this.value)" id="rsp-${r.id}">
-      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" oninput="updRowQty('${r.id}',this.value)">
+      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" step="0.001" oninput="updRowQty('${r.id}',this.value)">
       <button class="btn-xs btn-del" onclick="rmRow('${r.id}')">✕</button>
     </div>`;
   }).join('');
@@ -4868,7 +4868,7 @@ function selProdRow(rowId,prodId){
   },10);
 }
 function updRowPrice(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.sellPrice=parseFloat(v)||0;updSellSum();}
-function updRowQty(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.qty=parseInt(v)||1;updSellSum();}
+function updRowQty(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.qty=parseFloat(v)||1;updSellSum();}
 function rmRow(rowId){sellRows=sellRows.filter(r=>r.id!==rowId);renderSellRows();}
 
 function updSellSum(){
@@ -5062,7 +5062,7 @@ function renderObRows(){
       </div>
       <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" min="0"
         oninput="updObRowPrice('${r.id}',this.value)" id="obsp-${r.id}">
-      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1"
+      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" step="0.001"
         oninput="updObRowQty('${r.id}',this.value)">
       <button class="btn-xs btn-del" onclick="rmObRow('${r.id}')">✕</button>
     </div>`).join('');
@@ -5104,7 +5104,7 @@ function updObRowPrice(rowId, v){
   const r=obRows.find(x=>x.id===rowId); if(r) r.sellPrice=parseFloat(v)||0; updObSummary();
 }
 function updObRowQty(rowId, v){
-  const r=obRows.find(x=>x.id===rowId); if(r) r.qty=parseInt(v)||1; updObSummary();
+  const r=obRows.find(x=>x.id===rowId); if(r) r.qty=parseFloat(v)||1; updObSummary();
 }
 function rmObRow(rowId){
   obRows=obRows.filter(r=>r.id!==rowId); renderObRows();
@@ -5428,7 +5428,7 @@ function openReturnModal(shopId){
       <label style="display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--text3);cursor:pointer">
         <input type="checkbox" id="retck-${k}" onchange="updReturnSummary()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--warn)"> Return
       </label>
-      <input type="number" id="retqty-${k}" value="${maxQty}" min="1" max="${maxQty}"
+      <input type="number" id="retqty-${k}" value="${maxQty}" min="1" max="${maxQty}" step="0.001"
         style="width:70px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:9px;padding:7px 10px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.83rem;outline:none"
         oninput="clampRetQty(this,${maxQty});updReturnSummary()">
     </div>`;
@@ -5439,7 +5439,7 @@ function openReturnModal(shopId){
 
 function clampRetQty(el, max){
   // Enforce max = what was sold in that bill
-  let v = parseInt(el.value)||1;
+  let v = parseFloat(el.value)||1;
   if(v > max){ el.value = max; v = max; }
   if(v < 1)  { el.value = 1;  }
 }
@@ -5455,7 +5455,7 @@ function updReturnSummary(){
     const ck = document.getElementById('retck-'+k);
     const qEl = document.getElementById('retqty-'+k);
     if(ck&&ck.checked&&maxQty>0){
-      const qty = Math.min(parseInt(qEl.value)||1, maxQty);
+      const qty = Math.min(parseFloat(qEl.value)||1, maxQty);
       totalReturn += it.sellPrice * qty;
       count++;
     }
@@ -5487,7 +5487,7 @@ function saveReturn(){
     const ck = document.getElementById('retck-'+k);
     const qEl = document.getElementById('retqty-'+k);
     if(ck&&ck.checked&&maxQty>0){
-      const qty = Math.min(Math.max(parseInt(qEl.value)||1, 1), maxQty);
+      const qty = Math.min(Math.max(parseFloat(qEl.value)||1, 1), maxQty);
       returnItems.push({productId:it.productId, name:it.name, sellPrice:it.sellPrice, qty});
       totalReturn += it.sellPrice * qty;
     }
@@ -5955,11 +5955,12 @@ function renderEsRows(){
     <div class="sell-item" id="esr-${r.id}">
       <div class="ac-wrap" style="position:relative">
         <input class="row-inp" type="text" placeholder="Product name…" value="${r.name}"
-          oninput="esRowAC(this,'${r.id}')" autocomplete="off" id="esi-${r.id}">
-        <div class="ac-list" id="essu-${r.id}" style="display:none"></div>
+          oninput="esRowAC(this,'${r.id}')"
+          onblur="(()=>{const row=esRows.find(x=>x.id==='${r.id}');if(row&&this.value.trim())row.name=this.value.trim();})()"
+          autocomplete="off" id="esi-${r.id}">
       </div>
-      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updEsRowPrice('${r.id}',this.value)">
-      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" oninput="updEsRowQty('${r.id}',this.value)">
+      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updEsRowPrice('${r.id}',this.value)" id="esp-${r.id}">
+      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" step="0.001" oninput="updEsRowQty('${r.id}',this.value)">
       <button class="btn-xs btn-del" onclick="rmEsRow('${r.id}')">✕</button>
     </div>
   `).join('');
@@ -5968,29 +5969,32 @@ function renderEsRows(){
 function addEsRow(){ esRows.push({id:uid(),productId:'',name:'',sellPrice:0,qty:1}); renderEsRows(); }
 function rmEsRow(id){ esRows=esRows.filter(r=>r.id!==id); renderEsRows(); }
 function updEsRowPrice(id,v){ const r=esRows.find(x=>x.id===id); if(r) r.sellPrice=parseFloat(v)||0; }
-function updEsRowQty(id,v){ const r=esRows.find(x=>x.id===id); if(r) r.qty=parseInt(v)||1; }
+function updEsRowQty(id,v){ const r=esRows.find(x=>x.id===id); if(r) r.qty=parseFloat(v)||1; }
 function selEsPay(btn,m){ esPayMethod=m; document.querySelectorAll('#esPayOpts .pay-opt').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
 
 function esRowAC(inp, rowId){
   const q=inp.value.toLowerCase();
-  const su=document.getElementById('essu-'+rowId);
-  if(!q){su.style.display='none';return;}
+  const r=esRows.find(x=>x.id===rowId);
+  if(r){ r.name=inp.value.trim(); if(!inp.value.trim()){r.productId='';} }
+  if(!q){hidePortalAC();return;}
   const m=db.products.filter(p=>p.name.toLowerCase().includes(q));
-  if(!m.length){su.style.display='none';return;}
-  su.style.display='';
-  su.innerHTML=m.map(p=>`
-    <div class="ac-item" onclick="selEsProdRow('${rowId}','${p.id}')">
+  if(!m.length){hidePortalAC();return;}
+  const html=m.map(p=>`
+    <div class="ac-item" onclick="selEsProdRow('${rowId}','${p.id}');hidePortalAC()">
       <div><span>${p.name}</span><span class="ac-sub"> · Stock: ${p.qty}</span></div>
       <span class="ac-price">${fmt(p.sell)}</span>
     </div>`).join('');
+  showPortalAC(inp, html);
 }
 function selEsProdRow(rowId,prodId){
   const p=db.products.find(x=>x.id===prodId);
   const r=esRows.find(x=>x.id===rowId);
   if(r){r.productId=p.id;r.name=p.name;r.sellPrice=p.sell;r.qty=1;}
-  document.getElementById('essu-'+rowId).style.display='none';
   renderEsRows();
-  setTimeout(()=>{const el=document.getElementById('esi-'+rowId);if(el)el.value=p.name;},10);
+  setTimeout(()=>{
+    const el=document.getElementById('esi-'+rowId);if(el)el.value=p.name;
+    const sp=document.getElementById('esp-'+rowId);if(sp)sp.value=p.sell;
+  },10);
 }
 
 function saveEditSess(){
@@ -6724,7 +6728,7 @@ function inlineEditStock(prodId) {
 function saveInlineStock(prodId) {
   const inp = document.getElementById('sqinp-' + prodId);
   if (!inp) return;
-  const newQty = parseInt(inp.value);
+  const newQty = parseFloat(inp.value);
   if (isNaN(newQty) || newQty < 0) { toast('Enter a valid quantity (0 or more)', 'err'); inp.focus(); return; }
   const p = db.products.find(x => x.id === prodId);
   if (!p) return;
@@ -6776,7 +6780,7 @@ function openEditStockModal(compId) {
         </div>
         <div>
           <div style="font-size:.65rem;color:var(--text3);margin-bottom:3px">New Qty</div>
-          <input type="number" min="0" value="${p.qty}"
+          <input type="number" min="0" step="0.001" value="${p.qty}"
             id="esq-${p.id}"
             style="width:80px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:6px 8px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.88rem;text-align:center;outline:none"
             oninput="markEsEdit('${p.id}', this.value)"
@@ -6789,7 +6793,7 @@ function openEditStockModal(compId) {
 }
 
 function markEsEdit(prodId, val) {
-  _esProdEdits[prodId] = parseInt(val)||0;
+  _esProdEdits[prodId] = parseFloat(val)||0;
 }
 
 function saveEditStock() {
@@ -6798,7 +6802,7 @@ function saveEditStock() {
   ps.forEach(p=>{
     const inp = document.getElementById('esq-'+p.id);
     if(!inp) return;
-    const newQty = parseInt(inp.value)||0;
+    const newQty = parseFloat(inp.value)||0;
     if(newQty !== p.qty) {
       p.qty = newQty;
       changed++;
@@ -7936,7 +7940,7 @@ function renderPoRows() {
           oninput="poUpdRow('${row.id}','note',this.value)"
           style="margin-top:6px;font-size:.76rem;opacity:.8">
       </div>
-      <input type="number" class="row-inp" min="1" value="${row.qty}"
+      <input type="number" class="row-inp" min="1" step="0.001" value="${row.qty}"
         oninput="poUpdRow('${row.id}','qty',this.value)" placeholder="Qty">
       <button onclick="removePoRow('${row.id}')" style="background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.3);color:var(--red);border-radius:9px;padding:7px 10px;cursor:pointer;font-size:.85rem;align-self:flex-start">✕</button>
     </div>`;
@@ -7981,7 +7985,7 @@ function poSelectProduct(rowId, productId, name) {
 function poUpdRow(rowId, field, val) {
   const row = _poRows.find(r=>r.id===rowId);
   if(!row) return;
-  if(field==='qty') row.qty = parseInt(val)||1;
+  if(field==='qty') row.qty = parseFloat(val)||1;
   else row[field] = val;
   if(field==='qty') { updatePoStockWarning(); updatePoSummaryBox(); }
 }
