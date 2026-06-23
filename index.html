@@ -4795,7 +4795,7 @@ function openSellModal(eid=null,shopId=null){
 function addMoreSale(){openSellModal(null,currShopId);}
 
 function addSellRow(){
-  sellRows.push({id:uid(),productId:'',name:'',sellPrice:0,qty:1});
+  sellRows.push({id:uid(),productId:'',name:'',sellPrice:0,qty:1,qtyText:''});
   renderSellRows();
 }
 function renderSellRows(){
@@ -4829,10 +4829,11 @@ function renderSellRows(){
           autocomplete="off" id="pi-${r.id}">
         ${priceHint}
       </div>
-      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updRowPrice('${r.id}',this.value)" id="rsp-${r.id}">
-      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" step="0.001" oninput="updRowQty('${r.id}',this.value)">
+      <input class="row-inp" type="number" placeholder="${r.qtyText?'Total ₹':'Sell ₹'}" value="${r.sellPrice||''}" oninput="updRowPrice('${r.id}',this.value)" id="rsp-${r.id}">
+      <input class="row-inp" type="text" placeholder="Qty" value="${r.qtyText?r.qtyText:r.qty}" oninput="updRowQty('${r.id}',this.value)" id="rq-${r.id}">
       <button class="btn-xs btn-del" onclick="rmRow('${r.id}')">✕</button>
-    </div>`;
+    </div>
+    ${r.qtyText?`<div id="srhint-${r.id}" style="font-size:.68rem;color:#60a5fa;margin:-6px 0 6px 2px">📝 Custom qty "${r.qtyText}" — Sell ₹ used as total amount for this product</div>`:''}`;
   }).join('');
   updSellSum();
 }
@@ -4860,7 +4861,7 @@ function selProdRow(rowId,prodId){
   const r=sellRows.find(x=>x.id===rowId);
   const custTag = _getSellCustomerTag();
   const effectivePrice = getEffectiveSellPrice(p, custTag);
-  if(r){r.productId=p.id;r.name=p.name;r.sellPrice=effectivePrice;r.qty=1;}
+  if(r){r.productId=p.id;r.name=p.name;r.sellPrice=effectivePrice;r.qty=1;r.qtyText='';}
   renderSellRows();
   setTimeout(()=>{
     const el=document.getElementById('pi-'+rowId);if(el)el.value=p.name;
@@ -4868,7 +4869,40 @@ function selProdRow(rowId,prodId){
   },10);
 }
 function updRowPrice(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.sellPrice=parseFloat(v)||0;updSellSum();}
-function updRowQty(rowId,v){const r=sellRows.find(x=>x.id===rowId);if(r)r.qty=parseFloat(v)||1;updSellSum();}
+function updRowQty(rowId,v){
+  const r=sellRows.find(x=>x.id===rowId);
+  if(!r) return;
+  const trimmed=(v||'').trim();
+  // A valid plain number: optional digits, optional single decimal point + digits (e.g. 5, 12.440, 0.5, 12.)
+  const isPlainNumber = /^\d+(\.\d*)?$|^\.\d+$/.test(trimmed);
+  const n=parseFloat(trimmed);
+  if(trimmed!==''&&isPlainNumber&&!isNaN(n)){
+    r.qty=n>0?n:1;
+    r.qtyText='';
+  } else if(trimmed===''){
+    r.qty=1;
+    r.qtyText='';
+  } else {
+    // Free text qty (e.g. "1 box") — sell price becomes the total amount for this line
+    r.qtyText=trimmed;
+    r.qty=1;
+  }
+  // Update hint + price placeholder in place (no full re-render, to keep input focus while typing)
+  const row=document.getElementById('sr-'+rowId);
+  const hint=document.getElementById('srhint-'+rowId);
+  const priceInp=document.getElementById('rsp-'+rowId);
+  if(priceInp) priceInp.placeholder = r.qtyText?'Total ₹':'Sell ₹';
+  if(row){
+    if(r.qtyText && !hint){
+      row.insertAdjacentHTML('afterend', `<div id="srhint-${rowId}" style="font-size:.68rem;color:#60a5fa;margin:-6px 0 6px 2px">📝 Custom qty "${r.qtyText}" — Sell ₹ used as total amount for this product</div>`);
+    } else if(r.qtyText && hint){
+      hint.textContent = `📝 Custom qty "${r.qtyText}" — Sell ₹ used as total amount for this product`;
+    } else if(!r.qtyText && hint){
+      hint.remove();
+    }
+  }
+  updSellSum();
+}
 function rmRow(rowId){sellRows=sellRows.filter(r=>r.id!==rowId);renderSellRows();}
 
 function updSellSum(){
@@ -5260,7 +5294,7 @@ function saveSale(){
     contact,
     customerNumber,
     customerTag: shop.tag||'',
-    items:valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty})),
+    items:valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty,qtyText:r.qtyText||''})),
     newBillTotal,          // just this session's goods value
     total:grandTotal,      // total = newBill + prevBalance (what customer owes total)
     prevBalance,           // carried forward from last session
@@ -5644,7 +5678,7 @@ function openShopDetail(id){
             ${sess.items.map(it=>`<tr>
               <td>${it.name}</td>
               <td style="text-align:right">${fmt(it.sellPrice)}</td>
-              <td style="text-align:right">${it.qty}</td>
+              <td style="text-align:right">${it.qtyText?it.qtyText:it.qty}</td>
               <td style="text-align:right;font-weight:700;color:var(--green)">${fmt(it.sellPrice*it.qty)}</td>
             </tr>`).join('')}
             <tr style="font-weight:700;border-top:1px solid var(--glass-border)">
@@ -5945,7 +5979,7 @@ function openEditSess(shopId, sessId){
       <div style="font-size:.78rem;color:var(--text3)">Editing session for <strong style="color:var(--accent)">${sh.name}</strong> · Originally ${fmtD(sess.date)}</div>
     </div>`;
   // Clone items
-  esRows = sess.items.map(it=>({id:uid(), productId:it.productId, name:it.name, sellPrice:it.sellPrice, qty:it.qty}));
+  esRows = sess.items.map(it=>({id:uid(), productId:it.productId, name:it.name, sellPrice:it.sellPrice, qty:it.qty, qtyText:it.qtyText||''}));
   renderEsRows();
   openM('mEditSess');
 }
@@ -5959,17 +5993,47 @@ function renderEsRows(){
           onblur="(()=>{const row=esRows.find(x=>x.id==='${r.id}');if(row&&this.value.trim())row.name=this.value.trim();})()"
           autocomplete="off" id="esi-${r.id}">
       </div>
-      <input class="row-inp" type="number" placeholder="Sell ₹" value="${r.sellPrice||''}" oninput="updEsRowPrice('${r.id}',this.value)" id="esp-${r.id}">
-      <input class="row-inp" type="number" placeholder="Qty" value="${r.qty}" min="1" step="0.001" oninput="updEsRowQty('${r.id}',this.value)">
+      <input class="row-inp" type="number" placeholder="${r.qtyText?'Total ₹':'Sell ₹'}" value="${r.sellPrice||''}" oninput="updEsRowPrice('${r.id}',this.value)" id="esp-${r.id}">
+      <input class="row-inp" type="text" placeholder="Qty" value="${r.qtyText?r.qtyText:r.qty}" oninput="updEsRowQty('${r.id}',this.value)" id="esq-${r.id}">
       <button class="btn-xs btn-del" onclick="rmEsRow('${r.id}')">✕</button>
     </div>
+    ${r.qtyText?`<div id="eshint-${r.id}" style="font-size:.68rem;color:#60a5fa;margin:-6px 0 6px 2px">📝 Custom qty "${r.qtyText}" — Sell ₹ used as total amount for this product</div>`:''}
   `).join('');
 }
 
-function addEsRow(){ esRows.push({id:uid(),productId:'',name:'',sellPrice:0,qty:1}); renderEsRows(); }
+function addEsRow(){ esRows.push({id:uid(),productId:'',name:'',sellPrice:0,qty:1,qtyText:''}); renderEsRows(); }
 function rmEsRow(id){ esRows=esRows.filter(r=>r.id!==id); renderEsRows(); }
 function updEsRowPrice(id,v){ const r=esRows.find(x=>x.id===id); if(r) r.sellPrice=parseFloat(v)||0; }
-function updEsRowQty(id,v){ const r=esRows.find(x=>x.id===id); if(r) r.qty=parseFloat(v)||1; }
+function updEsRowQty(id,v){
+  const r=esRows.find(x=>x.id===id);
+  if(!r) return;
+  const trimmed=(v||'').trim();
+  const isPlainNumber = /^\d+(\.\d*)?$|^\.\d+$/.test(trimmed);
+  const n=parseFloat(trimmed);
+  if(trimmed!==''&&isPlainNumber&&!isNaN(n)){
+    r.qty=n>0?n:1;
+    r.qtyText='';
+  } else if(trimmed===''){
+    r.qty=1;
+    r.qtyText='';
+  } else {
+    r.qtyText=trimmed;
+    r.qty=1;
+  }
+  const row=document.getElementById('esr-'+id);
+  const hint=document.getElementById('eshint-'+id);
+  const priceInp=document.getElementById('esp-'+id);
+  if(priceInp) priceInp.placeholder = r.qtyText?'Total ₹':'Sell ₹';
+  if(row){
+    if(r.qtyText && !hint){
+      row.insertAdjacentHTML('afterend', `<div id="eshint-${id}" style="font-size:.68rem;color:#60a5fa;margin:-6px 0 6px 2px">📝 Custom qty "${r.qtyText}" — Sell ₹ used as total amount for this product</div>`);
+    } else if(r.qtyText && hint){
+      hint.textContent = `📝 Custom qty "${r.qtyText}" — Sell ₹ used as total amount for this product`;
+    } else if(!r.qtyText && hint){
+      hint.remove();
+    }
+  }
+}
 function selEsPay(btn,m){ esPayMethod=m; document.querySelectorAll('#esPayOpts .pay-opt').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); }
 
 function esRowAC(inp, rowId){
@@ -5989,7 +6053,7 @@ function esRowAC(inp, rowId){
 function selEsProdRow(rowId,prodId){
   const p=db.products.find(x=>x.id===prodId);
   const r=esRows.find(x=>x.id===rowId);
-  if(r){r.productId=p.id;r.name=p.name;r.sellPrice=p.sell;r.qty=1;}
+  if(r){r.productId=p.id;r.name=p.name;r.sellPrice=p.sell;r.qty=1;r.qtyText='';}
   renderEsRows();
   setTimeout(()=>{
     const el=document.getElementById('esi-'+rowId);if(el)el.value=p.name;
@@ -6010,7 +6074,7 @@ function saveEditSess(){
   const grandTotal = newBillTotal + prevBal;
   // Update session
   sess.date = newDate;
-  sess.items = valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty}));
+  sess.items = valid.map(r=>({productId:r.productId,name:r.name,sellPrice:r.sellPrice,qty:r.qty,qtyText:r.qtyText||''}));
   sess.newBillTotal = newBillTotal;
   sess.total = grandTotal;
   sess.prevBalance = prevBal;
@@ -6392,7 +6456,7 @@ function printInvoice(shopId, sessId){
       <td style="padding:8px 10px;border-bottom:1px solid #ddd;font-size:13px">${i+1}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #ddd;font-size:13px">${it.name}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;font-size:13px">₹${it.sellPrice.toFixed(2)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:center;font-size:13px">${it.qty}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:center;font-size:13px">${it.qtyText?it.qtyText:it.qty}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #ddd;text-align:right;font-size:13px;font-weight:600">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
     </tr>`).join('');
 
@@ -6557,7 +6621,7 @@ function printRetailBill(sh, sess){
       <td class="td-num">${i+1}</td>
       <td class="td-name">${it.name}</td>
       <td class="td-price">₹${it.sellPrice.toFixed(2)}</td>
-      <td class="td-qty">${it.qty}</td>
+      <td class="td-qty">${it.qtyText?it.qtyText:it.qty}</td>
       <td class="td-amt">₹${(it.sellPrice*it.qty).toFixed(2)}</td>
     </tr>`).join('');
 
@@ -7186,7 +7250,7 @@ function downloadPDFInvoice(shopId, sessId){
     rdoc.setFont('times','italic'); rdoc.setFontSize(7.5); rdoc.setTextColor(120);
     rdoc.text('CUSTOMER', rM+3, bY+4);
     rdoc.setFont('times','bold'); rdoc.setFontSize(10); rdoc.setTextColor(0);
-    rdoc.text(sh.name, rM+3, bY+10);
+    rdoc.text(pdfSafe(sh.name), rM+3, bY+10);
     // Returned items table header
     let ry = bY + bH + 8;
     rdoc.setFontSize(7.5); rdoc.setFont('times','bold'); rdoc.setTextColor(120);
@@ -7199,7 +7263,7 @@ function downloadPDFInvoice(shopId, sessId){
     (sess.returnItems||[]).forEach((it,i)=>{
       if(i%2===1){ rdoc.setFillColor(255,250,235); rdoc.rect(rM,ry-5,rW-2*rM,7,'F'); }
       rdoc.text(String(i+1), rM+2, ry);
-      rdoc.text(it.name.substring(0,38), rM+10, ry);
+      rdoc.text(pdfSafe(it.name).substring(0,38), rM+10, ry);
       rdoc.text('Rs.'+it.sellPrice.toFixed(2), 130, ry, {align:'right'});
       rdoc.text(String(it.qty), 152, ry, {align:'right'});
       rdoc.setFont('times','bold');
@@ -7247,7 +7311,7 @@ function downloadPDFInvoice(shopId, sessId){
     doc.text('Sivasakthi Marketing', margin, 18);
     doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100);
     if(isContinued){
-      doc.text('Bill / Invoice Receipt  ·  Continued ('+sh.name+'  —  '+fmtD(sess.date)+')', margin, 24);
+      doc.text('Bill / Invoice Receipt  ·  Continued ('+pdfSafe(sh.name)+'  —  '+fmtD(sess.date)+')', margin, 24);
     } else {
       doc.text('Bill / Invoice Receipt', margin, 24);
     }
@@ -7289,13 +7353,13 @@ function downloadPDFInvoice(shopId, sessId){
 
   // Cell 1: To
   metaLabelStyle(); doc.text('TO (CUSTOMER)',margin+3,mBoxY+3.5);
-  metaValStyle(); doc.text(sh.name,margin+3,mBoxY+8);
+  metaValStyle(); doc.text(pdfSafe(sh.name),margin+3,mBoxY+8);
   // Cell 2: Contact
   metaLabelStyle(); doc.text('CONTACT',margin+colW+3,mBoxY+3.5);
-  metaValStyle(); doc.text(contact,margin+colW+3,mBoxY+8);
+  metaValStyle(); doc.text(pdfSafe(contact),margin+colW+3,mBoxY+8);
   // Cell 3: Handled By
   metaLabelStyle(); doc.text('HANDLED BY',margin+3,mBoxY+mBoxH/2+3.5);
-  metaValStyle(); doc.text(handledBy,margin+3,mBoxY+mBoxH/2+8);
+  metaValStyle(); doc.text(pdfSafe(handledBy),margin+3,mBoxY+mBoxH/2+8);
   // Cell 4: Payment Mode
   metaLabelStyle(); doc.text('PAYMENT MODE',margin+colW+3,mBoxY+mBoxH/2+3.5);
   metaValStyle(); doc.text(sess.payMethod||'—',margin+colW+3,mBoxY+mBoxH/2+8);
@@ -7348,9 +7412,9 @@ function downloadPDFInvoice(shopId, sessId){
     }
     doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(0);
     doc.text(String(i+1), margin+2, y);
-    doc.text(it.name.substring(0,38), margin+10, y);
+    doc.text(pdfSafe(it.name).substring(0,38), margin+10, y);
     doc.text('Rs.'+it.sellPrice.toFixed(2), 130, y, {align:'right'});
-    doc.text(String(it.qty), 152, y, {align:'right'});
+    doc.text(it.qtyText?pdfSafe(it.qtyText).substring(0,12):String(it.qty), 152, y, {align:'right'});
     doc.setFont('times','bold');
     doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), pageW-margin, y, {align:'right'});
     doc.setFont('times','normal');
@@ -7450,7 +7514,7 @@ function downloadPDFInvoice(shopId, sessId){
     doc.setFont('times','italic'); doc.setFontSize(8); doc.setTextColor(100);
     doc.text('Note:', margin+3, noteY+5);
     doc.setFont('times','normal'); doc.setTextColor(0);
-    const noteLines=doc.splitTextToSize(sess.notes, pageW-2*margin-18);
+    const noteLines=doc.splitTextToSize(pdfSafe(sess.notes), pageW-2*margin-18);
     doc.text(noteLines, margin+14, noteY+5);
     y = noteY + 12 + 3;
   }
@@ -7485,6 +7549,16 @@ function downloadPDFInvoice(shopId, sessId){
 // ══════════════════════════════════════════
 // RETAIL PDF — Clean Black & White Receipt (v31)
 // ══════════════════════════════════════════
+// jsPDF's built-in fonts (times/helvetica) only support the WinAnsi character set —
+// symbols like ₹ aren't in that set and corrupt the rendered line (wrong glyph + font glitches).
+// Replace ₹ with "Rs." (matching the rest of the bill) and strip any other unsupported characters.
+function pdfSafe(str){
+  if(str===null||str===undefined) return '';
+  return String(str)
+    .replace(/₹/g,'Rs.')
+    .replace(/[^\x00-\xFF]/g,''); // strip any other char outside the Latin-1/WinAnsi range
+}
+
 function _getJsPDF(){
   if(window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
   if(window.jsPDF) return window.jsPDF;
@@ -7536,18 +7610,18 @@ function downloadRetailPDF(sh, sess){
   // Date + By — right side in header
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(200,200,200);
   doc.text(fmtD(sess.date), pW-M, 24, {align:'right'});
-  if(handledBy){ doc.text('By: '+handledBy, pW-M, 31, {align:'right'}); }
+  if(handledBy){ doc.text('By: '+pdfSafe(handledBy), pW-M, 31, {align:'right'}); }
 
   // ── CUSTOMER BLOCK (just below header, light grey bg) ──
   doc.setFillColor(242,242,242);
   doc.rect(0,38,pW,22,'F');
 
   doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(10,10,10);
-  doc.text(sh.name, M, 48);
+  doc.text(pdfSafe(sh.name), M, 48);
 
   if(custPhone){
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(80,80,80);
-    doc.text(custPhone, M, 55);
+    doc.text(pdfSafe(custPhone), M, 55);
   }
 
   // Bill # / Ref on right side
@@ -7622,14 +7696,15 @@ function downloadRetailPDF(sh, sess){
     doc.text(String(i+1), colNo, midY);
 
     // Product name — truncate to fit
-    const nameStr = it.name.length > 38 ? it.name.substring(0,37)+'…' : it.name;
+    const safeName = pdfSafe(it.name);
+    const nameStr = safeName.length > 38 ? safeName.substring(0,37)+'…' : safeName;
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(15,15,15);
     doc.text(nameStr, colName, midY);
 
     // Company / brand hint (smaller)
     if(it.company){
       doc.setFont('helvetica','normal'); doc.setFontSize(6.2); doc.setTextColor(140,140,140);
-      doc.text(it.company.substring(0,20), colName, midY+3.8);
+      doc.text(pdfSafe(it.company).substring(0,20), colName, midY+3.8);
     }
 
     // Unit price
@@ -7638,7 +7713,7 @@ function downloadRetailPDF(sh, sess){
 
     // Qty — bold and prominent
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(20,20,20);
-    doc.text('x'+String(it.qty), colQty, midY, {align:'right'});
+    doc.text(it.qtyText?pdfSafe(it.qtyText).substring(0,14):('x'+String(it.qty)), colQty, midY, {align:'right'});
 
     // Line total — bold
     doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(10,10,10);
@@ -7732,7 +7807,7 @@ function downloadRetailPDF(sh, sess){
     doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(100,100,60);
     doc.text('NOTE:', M+3, y+6.5);
     doc.setFont('helvetica','normal'); doc.setTextColor(60,60,40);
-    const noteLines = doc.splitTextToSize(sess.notes, pW-2*M-22);
+    const noteLines = doc.splitTextToSize(pdfSafe(sess.notes), pW-2*M-22);
     doc.text(noteLines[0]||'', M+18, y+6.5);
   }
 
@@ -9479,7 +9554,7 @@ function shareOnWhatsApp(shopId, sessId) {
   const sh = db.shops.find(x => x.id === shopId);
   const sess = sh ? sh.sessions.find(s => s.id === sessId) : null;
   if (!sh || !sess) return;
-  const items = (sess.items || []).map(it => `  • ${it.name} (${fmt(it.sellPrice)}) × ${it.qty} = ${fmt(it.sellPrice * it.qty)}`).join('\n');
+  const items = (sess.items || []).map(it => `  • ${it.name} (${fmt(it.sellPrice)}) × ${it.qtyText?it.qtyText:it.qty} = ${fmt(it.sellPrice * it.qty)}`).join('\n');
 
   // Calculate current bill amount (excluding previous balance)
   const prevBal = sess.prevBalance || 0;
