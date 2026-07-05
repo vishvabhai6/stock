@@ -1202,7 +1202,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <button class="nav-btn" onclick="showPage('sell')">🛒 Sell</button>
     <button class="nav-btn" onclick="showPage('preorder')">📋 Pre-Order</button>
     <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
-    <button class="nav-btn" id="navExpenseBtn" onclick="showPage('expenses')">💰 Expenses</button>
+    <button class="nav-btn" id="navRentBtn" onclick="showPage('rent')">🏠 Rent</button>
     <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
     <button class="nav-btn" id="navBackupBtn" onclick="showPage('backup')">💾 Backup</button>
   </nav>
@@ -1233,8 +1233,8 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   <button class="mob-btn" id="mnStaff" onclick="showPage('staff')" style="display:none">
     <span class="mob-ico">👥</span>Staff
   </button>
-  <button class="mob-btn" id="mnExpenses" onclick="showPage('expenses')">
-    <span class="mob-ico">💰</span>Expenses
+  <button class="mob-btn" id="mnRent" onclick="showPage('rent')">
+    <span class="mob-ico">🏠</span>Rent
   </button>
   <button class="mob-btn" id="mnAnalytics" onclick="showPage('analytics')">
     <span class="mob-ico">📈</span>Analytics
@@ -1808,61 +1808,42 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
-<!-- ══════════ EXPENSES PAGE ══════════ -->
-<div class="page" id="page-expenses">
+<!-- ══════════ RENT PAGE ══════════ -->
+<div class="page" id="page-rent">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px">
     <div>
-      <div style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:700">💰 Expense Tracker</div>
-      <div style="font-size:.78rem;color:var(--text3);margin-top:3px">Track business expenses & cash flow</div>
+      <div style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:700">🏠 Rent Tracker</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-top:3px">Track rent due dates — get alerted 2 days before</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="exportExpensesCSV()">⬇️ Export CSV</button>
-      <button class="btn btn-primary" onclick="openAddExpenseModal()">＋ Add Expense</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportRentsCSV()">⬇️ Export CSV</button>
+      <button class="btn btn-primary" onclick="openAddRentModal()">＋ Add Rent</button>
     </div>
   </div>
 
   <!-- Summary Cards -->
-  <div class="stats-row" id="expenseSummaryCards" style="grid-template-columns:repeat(4,1fr);margin-bottom:18px"></div>
+  <div class="stats-row" id="rentSummaryCards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px"></div>
 
   <!-- Filter Bar -->
   <div class="hist-filter-bar" style="margin-bottom:14px">
-    <span class="hf-label">Period:</span>
-    <button class="hf-btn on" id="expf-all" onclick="setExpFilter('all',this)">All</button>
-    <button class="hf-btn" id="expf-month" onclick="setExpFilter('month',this)">This Month</button>
-    <button class="hf-btn" id="expf-custom" onclick="setExpFilter('custom',this)">Custom</button>
-    <input type="month" class="hf-inp" id="expf-month-inp" style="display:none" oninput="renderExpenses()">
-    <span class="hf-label" style="margin-left:4px">Category:</span>
-    <select class="hf-inp" id="expf-cat" onchange="renderExpenses()">
-      <option value="all">All Categories</option>
-      <option>🚗 Fuel / Travel</option>
-      <option>📦 Packaging</option>
-      <option>👷 Salary</option>
-      <option>🏢 Rent</option>
-      <option>📞 Phone / Internet</option>
-      <option>🛠️ Maintenance</option>
-      <option>🛍️ Miscellaneous</option>
-    </select>
+    <span class="hf-label">Show:</span>
+    <button class="hf-btn on" id="rentf-all" onclick="setRentFilter('all',this)">All</button>
+    <button class="hf-btn" id="rentf-pending" onclick="setRentFilter('pending',this)">Pending</button>
+    <button class="hf-btn" id="rentf-paid" onclick="setRentFilter('paid',this)">Paid</button>
+    <button class="hf-btn" id="rentf-overdue" onclick="setRentFilter('overdue',this)">Overdue</button>
+    <button class="hf-btn" id="rentf-vacated" onclick="setRentFilter('vacated',this)">Vacated</button>
     <div style="margin-left:auto">
       <div class="search-wrap" style="min-width:160px">
         <span style="color:var(--text3)">🔍</span>
-        <input type="text" placeholder="Search expense…" id="expf-search" oninput="renderExpenses()">
+        <input type="text" placeholder="Search rent…" id="rentf-search" oninput="renderRent()">
       </div>
     </div>
   </div>
 
-  <!-- Cash Flow Chart -->
-  <div class="chart-card" style="margin-bottom:18px">
-    <div class="sec-hdr">
-      <div class="sec-title">📊 Income vs Expenses (Monthly)</div>
-      <input type="year" class="date-inp" id="cashflowYear" style="width:90px" onchange="renderCashFlow()">
-    </div>
-    <div id="cashflowChart" style="min-height:160px"></div>
-  </div>
-
-  <!-- Expense List -->
+  <!-- Rent List -->
   <div class="glass">
-    <div class="sec-title" style="margin-bottom:14px">Expense Records</div>
-    <div id="expenseList"></div>
+    <div class="sec-title" style="margin-bottom:14px">Rent Records</div>
+    <div id="rentList"></div>
   </div>
 </div>
 
@@ -2549,39 +2530,25 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
-<!-- Add Expense Modal -->
-<div class="modal-ov" id="mAddExpense">
+<!-- Add Rent Modal -->
+<div class="modal-ov" id="mAddRent">
   <div class="modal" style="max-width:480px">
-    <div class="modal-title"><span>💰 Add Expense</span><button class="modal-x" onclick="closeM('mAddExpense')">✕</button></div>
+    <div class="modal-title"><span>🏠 Add Rent</span><button class="modal-x" onclick="closeM('mAddRent')">✕</button></div>
+    <div class="fg"><label>Rent Name</label><input type="text" id="rentName" placeholder="e.g. Shop Rent, House Rent"></div>
     <div class="form-2col">
-      <div class="fg"><label>Date</label><input type="date" id="expDate"></div>
-      <div class="fg"><label>Amount (₹)</label><input type="number" id="expAmount" placeholder="0.00"></div>
+      <div class="fg"><label>Amount (₹)</label><input type="number" id="rentAmount" placeholder="0.00"></div>
+      <div class="fg"><label>Due Date</label><input type="date" id="rentDueDate"></div>
     </div>
-    <div class="fg">
-      <label>Category</label>
-      <select id="expCategory">
-        <option>🚗 Fuel / Travel</option>
-        <option>📦 Packaging</option>
-        <option>👷 Salary</option>
-        <option>🏢 Rent</option>
-        <option>📞 Phone / Internet</option>
-        <option>🛠️ Maintenance</option>
-        <option>🛍️ Miscellaneous</option>
-      </select>
+    <div class="fg"><label>Advance Paid (₹) <span style="color:var(--text3);font-weight:400">— optional</span></label><input type="number" id="rentAdvance" placeholder="0.00"></div>
+    <div class="fg"><label>Notes (optional)</label><input type="text" id="rentNotes" placeholder="e.g. Pay to landlord via GPay"></div>
+    <div class="fg" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="rentRecurring" style="width:16px;height:16px" checked>
+      <label style="margin:0" for="rentRecurring">🔁 Repeats every month (auto rolls to next month after marking paid)</label>
     </div>
-    <div class="fg"><label>Description</label><input type="text" id="expDesc" placeholder="e.g. Petrol for delivery run"></div>
-    <div class="fg">
-      <label>Payment Method</label>
-      <div class="pay-opts" id="expPayOpts">
-        <button class="pay-opt on" onclick="selExpPay(this,'Cash')">💵 Cash</button>
-        <button class="pay-opt" onclick="selExpPay(this,'Bank')">🏦 Bank</button>
-        <button class="pay-opt" onclick="selExpPay(this,'GPay')">📱 GPay</button>
-        <button class="pay-opt" onclick="selExpPay(this,'PhonePe')">📲 PhonePe</button>
-      </div>
-    </div>
+    <div style="font-size:.74rem;color:var(--text3);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:10px;padding:8px 10px;margin-bottom:6px">🔔 You'll get an alert notification 2 days before this rent is due.</div>
     <div class="form-acts">
-      <button class="btn btn-ghost" onclick="closeM('mAddExpense')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveExpense()">✓ Save Expense</button>
+      <button class="btn btn-ghost" onclick="closeM('mAddRent')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRent()">✓ Save Rent</button>
     </div>
   </div>
 </div>
@@ -2624,7 +2591,8 @@ let db = {
   shops:[],
   staffList:[],  // {id, name, email, createdAt}
   preorders:[],   // {id, customerType, customerName, shopId, contact, handledBy, address, orderDate, deliveryDate, items:[{productId,name,qty,note,stockOk}], notes, priority, status, createdAt, updatedAt}
-  expenses:[]    // {id, date, amount, category, desc, payMethod, createdAt}
+  expenses:[],   // {id, date, amount, category, desc, payMethod, createdAt} — legacy, kept for old backups
+  rents:[]       // {id, name, amount, dueDate, advanceAmount, notes, recurring, paid, paidDate, createdAt, vacated, vacatedDate}
   // shop:{id,name,sessions:[],creditLimit}
   // session:{id,date,items:[{productId,name,sellPrice,qty}],total,paid,payMethod,balance,prevBalance,payments:[]}
   // payment:{id,date,amount,method}
@@ -2751,7 +2719,8 @@ let chartFilter='month', selPayMethod='Cash', apPayMethod='Cash', apTargetShopId
 const uid=()=>'_'+Math.random().toString(36).substr(2,9);
 const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtD=d=>new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-const today=()=>new Date().toISOString().split('T')[0];
+const today=()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const toLocalDateStr=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
 // ══════════════════════════════════════════
 // SOUND EFFECTS (Web Audio API)
@@ -2910,12 +2879,12 @@ function showPage(name){
   }
   if(name==='preorder'){ initPoForm(); renderPoList(); renderPoSummaryStrip(); }
   if(name==='staff') renderStaffTab();
-  if(name==='expenses') { renderExpenses(); }
+  if(name==='rent') { renderRent(); }
   if(name==='analytics') { renderAnalytics(); }
   if(name==='backup') { renderBackupCloudInfo(); gdriveUpdateUI(!!_gdriveToken); }
 
   // Update mobile nav highlight for new pages
-  const extMap={expenses:'mnExpenses',analytics:'mnAnalytics',backup:'mnBackup'};
+  const extMap={rent:'mnRent',analytics:'mnAnalytics',backup:'mnBackup'};
   if(extMap[name]){const el=document.getElementById(extMap[name]);if(el)el.classList.add('active');}
 
   // Apply global staff restriction badge
@@ -7923,7 +7892,7 @@ function initPoForm() {
   // set today as default dates
   const d = today();
   const dl = new Date(); dl.setDate(dl.getDate()+3);
-  const delivStr = dl.toISOString().split('T')[0];
+  const delivStr = toLocalDateStr(dl);
   const od = document.getElementById('poOrderDate');
   const dd = document.getElementById('poDeliveryDate');
   if(od && !od.value) od.value = d;
@@ -8203,7 +8172,7 @@ function resetPoForm() {
   document.getElementById('poNotes').value = '';
   document.getElementById('poOrderDate').value = today();
   const dl = new Date(); dl.setDate(dl.getDate()+3);
-  document.getElementById('poDeliveryDate').value = dl.toISOString().split('T')[0];
+  document.getElementById('poDeliveryDate').value = toLocalDateStr(dl);
   document.getElementById('poStockWarning').style.display = 'none';
   document.getElementById('poSummaryBox').style.display = 'none';
   selectPoCustomerType('existing', document.getElementById('poTypeExisting'));
@@ -8432,149 +8401,215 @@ function exportPoCSV() {
 }
 
 // ══════════════════════════════════════════
-// FEATURE: EXPENSES TRACKER
+// FEATURE: RENT TRACKER
 // ══════════════════════════════════════════
-let expPayMethod = 'Cash';
-
-function selExpPay(btn, m) {
-  expPayMethod = m;
-  document.querySelectorAll('#expPayOpts .pay-opt').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
+function daysUntil(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const t = new Date(); t.setHours(0,0,0,0);
+  return Math.round((d - t) / 86400000);
 }
 
-function openAddExpenseModal() {
-  document.getElementById('expDate').value = today();
-  document.getElementById('expAmount').value = '';
-  document.getElementById('expDesc').value = '';
-  expPayMethod = 'Cash';
-  document.querySelectorAll('#expPayOpts .pay-opt').forEach((b,i) => b.classList[i===0?'add':'remove']('on'));
-  openM('mAddExpense');
+function addMonthsToDate(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDate();
+  d.setMonth(d.getMonth() + n);
+  // handle month-end overflow (e.g. Jan 31 + 1mo -> Feb 28)
+  if (d.getDate() < day) d.setDate(0);
+  // Build the date string from local parts — toISOString() converts to UTC first,
+  // which in IST (UTC+5:30) rolls midnight back to the previous day.
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
 }
 
-function saveExpense() {
-  const date = document.getElementById('expDate').value;
-  const amount = parseFloat(document.getElementById('expAmount').value) || 0;
-  const category = document.getElementById('expCategory').value;
-  const desc = document.getElementById('expDesc').value.trim();
+function openAddRentModal() {
+  document.getElementById('rentName').value = '';
+  document.getElementById('rentAmount').value = '';
+  document.getElementById('rentDueDate').value = today();
+  document.getElementById('rentAdvance').value = '';
+  document.getElementById('rentNotes').value = '';
+  document.getElementById('rentRecurring').checked = true;
+  openM('mAddRent');
+}
+
+function saveRent() {
+  const name = document.getElementById('rentName').value.trim() || 'Rent';
+  const amount = parseFloat(document.getElementById('rentAmount').value) || 0;
+  const dueDate = document.getElementById('rentDueDate').value;
+  const advanceAmount = parseFloat(document.getElementById('rentAdvance').value) || 0;
+  const notes = document.getElementById('rentNotes').value.trim();
+  const recurring = document.getElementById('rentRecurring').checked;
   if (!amount || amount <= 0) { toast('Enter valid amount', 'err'); return; }
-  if (!date) { toast('Enter date', 'err'); return; }
-  if (!db.expenses) db.expenses = [];
-  db.expenses.push({ id: uid(), date, amount, category, desc, payMethod: expPayMethod, createdAt: new Date().toISOString() });
-  logActivity(`💰 Expense added: ${category} — ${fmt(amount)}`);
-  toast('Expense saved ✓', 'ok', 'pay');
-  closeM('mAddExpense');
-  renderExpenses();
+  if (!dueDate) { toast('Enter due date', 'err'); return; }
+  if (!db.rents) db.rents = [];
+  db.rents.push({ id: uid(), name, amount, dueDate, advanceAmount, notes, recurring, paid: false, paidDate: null, createdAt: new Date().toISOString() });
+  logActivity(`🏠 Rent added: ${name} — ${fmt(amount)} due ${fmtD(dueDate)}${advanceAmount>0?` (advance paid: ${fmt(advanceAmount)})`:''}`);
+  toast('Rent saved ✓', 'ok', 'pay');
+  closeM('mAddRent');
+  renderRent();
   if (window.saveToFirestore) saveToFirestore();
 }
 
-function setExpFilter(f, btn) {
-  document.querySelectorAll('[id^="expf-"]').forEach(b => { if(b.tagName==='BUTTON') b.classList.remove('on'); });
+function setRentFilter(f, btn) {
+  document.querySelectorAll('[id^="rentf-"]').forEach(b => { if(b.tagName==='BUTTON') b.classList.remove('on'); });
   btn.classList.add('on');
-  document.getElementById('expf-month-inp').style.display = f === 'month' ? '' : 'none';
-  renderExpenses();
+  renderRent();
 }
 
-function renderExpenses() {
-  if (!db.expenses) db.expenses = [];
-  const cat = document.getElementById('expf-cat').value;
-  const q = (document.getElementById('expf-search').value || '').toLowerCase();
-  const monthInp = document.getElementById('expf-month-inp').value;
-  const activeFilter = document.querySelector('[id^="expf-"][class*="on"]')?.id;
+function renderRent() {
+  if (!db.rents) db.rents = [];
+  const q = (document.getElementById('rentf-search').value || '').toLowerCase();
+  const activeFilter = document.querySelector('[id^="rentf-"][class*="on"]')?.id || 'rentf-all';
 
-  let exps = [...db.expenses].sort((a, b) => b.date.localeCompare(a.date));
-  if (activeFilter === 'expf-month') {
-    const m = monthInp || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-    exps = exps.filter(e => e.date.startsWith(m));
-  }
-  if (cat !== 'all') exps = exps.filter(e => e.category === cat);
-  if (q) exps = exps.filter(e => (e.desc + e.category).toLowerCase().includes(q));
+  let rents = [...db.rents].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  if (activeFilter === 'rentf-pending') rents = rents.filter(r => !r.paid && !r.vacated);
+  if (activeFilter === 'rentf-paid') rents = rents.filter(r => r.paid && !r.vacated);
+  if (activeFilter === 'rentf-overdue') rents = rents.filter(r => !r.paid && !r.vacated && daysUntil(r.dueDate) < 0);
+  if (activeFilter === 'rentf-vacated') rents = rents.filter(r => r.vacated);
+  if (q) rents = rents.filter(r => (r.name + (r.notes||'')).toLowerCase().includes(q));
 
-  const totalExp = exps.reduce((a, e) => a + e.amount, 0);
+  // Pending = current unpaid rent cycles for shops that are still occupied (not vacated).
+  const pending = db.rents.filter(r => !r.paid && !r.vacated);
+  // "Rent Due (Pending)" should reflect what's actually owed right now — due this month or
+  // already overdue — not a future cycle you just rolled into after paying. A rent due next
+  // month shouldn't count here until that month actually starts.
+  const nowMonthKey = today().slice(0,7);
+  const dueNow = pending.filter(r => r.dueDate.slice(0,7) <= nowMonthKey);
+  // Rent due is the full monthly amount — advance is a deposit held separately, not a discount against rent.
+  const totalPendingBalance = dueNow.reduce((a, r) => a + r.amount, 0);
+  // Advance is only "held" while the shop is still occupied. Each active series carries its advance
+  // forward onto its current (unpaid, non-vacated) cycle, so summing just that cycle avoids
+  // double-counting the same deposit across old paid months.
+  const totalAdvanceHeld = pending.reduce((a, r) => a + (r.advanceAmount||0), 0);
+  const overdue = pending.filter(r => daysUntil(r.dueDate) < 0);
+  const upcoming = pending.filter(r => daysUntil(r.dueDate) >= 0).sort((a,b)=>a.dueDate.localeCompare(b.dueDate))[0];
   const thisMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const monthExp = db.expenses.filter(e => e.date.startsWith(thisMonthStr)).reduce((a,e)=>a+e.amount,0);
+  const paidThisMonth = db.rents.filter(r => r.paid && r.paidDate && r.paidDate.startsWith(thisMonthStr)).reduce((a,r)=>a+r.amount,0);
 
-  // Calculate income (sales paid this month)
-  const monthIncome = db.shops.flatMap(sh => sh.sessions).filter(s => s.date.startsWith(thisMonthStr)).reduce((a,s)=>a+s.paid,0);
-  const netCashFlow = monthIncome - monthExp;
-
-  // Category breakdown
-  const catTotals = {};
-  exps.forEach(e => { catTotals[e.category] = (catTotals[e.category]||0) + e.amount; });
-  const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
-
-  document.getElementById('expenseSummaryCards').innerHTML = `
-    <div class="stat-card sc-red" style="padding:16px"><div class="stat-label">Total Expenses (filtered)</div><div class="stat-value" style="font-size:1rem">${fmt(totalExp)}</div></div>
-    <div class="stat-card sc-warn" style="padding:16px"><div class="stat-label">This Month</div><div class="stat-value" style="font-size:1rem">${fmt(monthExp)}</div></div>
-    <div class="stat-card sc-green" style="padding:16px"><div class="stat-label">This Month Income</div><div class="stat-value" style="font-size:1rem">${fmt(monthIncome)}</div></div>
-    <div class="stat-card ${netCashFlow>=0?'sc-cyan':'sc-red'}" style="padding:16px"><div class="stat-label">Net Cash Flow</div><div class="stat-value" style="font-size:1rem;color:${netCashFlow>=0?'var(--green)':'var(--red)'}">${fmt(netCashFlow)}</div><div class="stat-sub">${netCashFlow>=0?'Surplus':'Deficit'}</div></div>
+  document.getElementById('rentSummaryCards').innerHTML = `
+    <div class="stat-card sc-warn" style="padding:16px"><div class="stat-label">Rent Due (Pending)</div><div class="stat-value" style="font-size:1rem">${fmt(totalPendingBalance)}</div></div>
+    <div class="stat-card ${overdue.length?'sc-red':'sc-cyan'}" style="padding:16px"><div class="stat-label">Overdue</div><div class="stat-value" style="font-size:1rem;color:${overdue.length?'var(--red)':'var(--text)'}">${overdue.length}</div></div>
+    <div class="stat-card sc-cyan" style="padding:16px"><div class="stat-label">Next Due</div><div class="stat-value" style="font-size:.95rem">${upcoming ? fmtD(upcoming.dueDate) : '—'}</div><div class="stat-sub">${upcoming ? upcoming.name : 'Nothing pending'}</div></div>
+    <div class="stat-card sc-green" style="padding:16px"><div class="stat-label">Advance Held (Total)</div><div class="stat-value" style="font-size:1rem">${fmt(totalAdvanceHeld)}</div><div class="stat-sub">Returned when you vacate</div></div>
+    <div class="stat-card sc-green" style="padding:16px"><div class="stat-label">Paid This Month</div><div class="stat-value" style="font-size:1rem">${fmt(paidThisMonth)}</div></div>
   `;
 
-  if (!exps.length) {
-    document.getElementById('expenseList').innerHTML = '<div class="empty"><div class="empty-ico">💰</div><div style="font-size:.8rem">No expenses recorded</div></div>';
+  if (!rents.length) {
+    document.getElementById('rentList').innerHTML = '<div class="empty"><div class="empty-ico">🏠</div><div style="font-size:.8rem">No rent records yet</div></div>';
     return;
   }
 
-  document.getElementById('expenseList').innerHTML = exps.map(e => `
+  document.getElementById('rentList').innerHTML = rents.map(r => {
+    const du = daysUntil(r.dueDate);
+    const adv = r.advanceAmount || 0;
+    let statusHtml, bg;
+    if (r.vacated) { statusHtml = `🔑 Vacated ${r.vacatedDate?('on '+fmtD(r.vacatedDate)):''}`; bg = 'rgba(148,163,184,.12)'; }
+    else if (r.paid) { statusHtml = `✅ Paid ${r.paidDate?('on '+fmtD(r.paidDate)):''}`; bg = 'rgba(134,239,172,.12)'; }
+    else if (du < 0) { statusHtml = `⚠️ Overdue by ${Math.abs(du)}d`; bg = 'rgba(251,113,133,.12)'; }
+    else if (du === 0) { statusHtml = `🔔 Due TODAY`; bg = 'rgba(251,191,36,.14)'; }
+    else if (du === 1) { statusHtml = `🔔 Due TOMORROW`; bg = 'rgba(251,191,36,.14)'; }
+    else if (du === 2) { statusHtml = `🔔 Due in 2d`; bg = 'rgba(251,191,36,.14)'; }
+    else { statusHtml = `Due in ${du}d`; bg = 'rgba(249,168,212,.08)'; }
+    const advLine = r.vacated
+      ? (adv > 0 ? ` · Advance returned: ${fmt(adv)}` : '')
+      : (adv > 0 ? ` · Advance held: ${fmt(adv)} <span style="color:var(--text3)">(returned when vacated)</span>` : '');
+    return `
     <div class="txn-row" style="margin-bottom:8px">
-      <div class="txn-ico" style="background:rgba(251,113,133,.12)">${e.category.split(' ')[0]}</div>
+      <div class="txn-ico" style="background:${bg}">🏠</div>
       <div class="txn-info">
-        <div class="txn-nm">${e.desc || e.category}</div>
-        <div class="txn-mt">${e.category} · ${fmtD(e.date)} · ${e.payMethod||'Cash'}</div>
+        <div class="txn-nm">${r.name}${r.recurring && !r.vacated?' <span style="font-size:.68rem;color:var(--text3)">🔁 monthly</span>':''}</div>
+        <div class="txn-mt">Due ${fmtD(r.dueDate)} · ${statusHtml}${advLine}${r.notes?(' · '+r.notes):''}</div>
       </div>
       <div class="txn-amt">
-        <div class="txn-total">${fmt(e.amount)}</div>
+        <div class="txn-total">${fmt(r.amount)}</div>
       </div>
-      ${isOwner()?`<button onclick="deleteExpense('${e.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:4px" title="Delete">🗑️</button>`:''}
-    </div>
-  `).join('');
-
-  renderCashFlow();
-}
-
-function deleteExpense(id) {
-  db.expenses = (db.expenses||[]).filter(e => e.id !== id);
-  if (window.saveToFirestore) saveToFirestore();
-  renderExpenses();
-  toast('Expense deleted', 'ok');
-}
-
-function renderCashFlow() {
-  const yearEl = document.getElementById('cashflowYear');
-  if (!yearEl.value) yearEl.value = new Date().getFullYear();
-  const year = yearEl.value || new Date().getFullYear();
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const data = months.map((m, i) => {
-    const key = `${year}-${String(i+1).padStart(2,'0')}`;
-    const income = db.shops.flatMap(sh=>sh.sessions).filter(s=>s.date.startsWith(key)).reduce((a,s)=>a+s.paid,0);
-    const expense = (db.expenses||[]).filter(e=>e.date.startsWith(key)).reduce((a,e)=>a+e.amount,0);
-    return { m, income, expense, net: income - expense };
-  });
-  const maxVal = Math.max(...data.map(d => Math.max(d.income, d.expense)), 1);
-  document.getElementById('cashflowChart').innerHTML = `
-    <div style="display:flex;align-items:flex-end;gap:6px;height:140px;padding:0 4px">
-      ${data.map(d => {
-        const inH = Math.max((d.income/maxVal)*120, 1);
-        const exH = Math.max((d.expense/maxVal)*120, 1);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:140px;justify-content:flex-end">
-          <div style="width:100%;display:flex;gap:1px;align-items:flex-end;justify-content:center">
-            <div title="Income: ${fmt(d.income)}" style="flex:1;height:${inH}px;background:linear-gradient(180deg,var(--green),rgba(134,239,172,.3));border-radius:3px 3px 0 0;transition:height .4s"></div>
-            <div title="Expense: ${fmt(d.expense)}" style="flex:1;height:${exH}px;background:linear-gradient(180deg,var(--red),rgba(251,113,133,.3));border-radius:3px 3px 0 0;transition:height .4s"></div>
-          </div>
-          <div style="font-size:.6rem;color:var(--text3)">${d.m}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="display:flex;gap:14px;margin-top:8px;font-size:.72rem">
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--green);border-radius:2px;display:inline-block"></span>Income</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--red);border-radius:2px;display:inline-block"></span>Expenses</span>
+      ${isOwner() && !r.paid && !r.vacated ? `<button onclick="addAdvancePayment('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:.8rem;padding:4px" title="Add Advance Payment">💵</button>` : ''}
+      ${isOwner() && !r.paid && !r.vacated ? `<button onclick="markRentPaid('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:.8rem;padding:4px" title="Mark Paid">✅</button>` : ''}
+      ${isOwner() && !r.vacated ? `<button onclick="vacateRent('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--warn);font-size:.8rem;padding:4px" title="Vacate — return advance">🔑</button>` : ''}
+      ${isOwner() ? `<button onclick="deleteRent('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:4px" title="Delete">🗑️</button>` : ''}
     </div>
   `;
+  }).join('');
 }
 
-function exportExpensesCSV() {
-  const rows = [['Date','Category','Description','Amount','Payment Method']];
-  (db.expenses||[]).forEach(e => rows.push([e.date, e.category, e.desc||'', e.amount, e.payMethod||'Cash']));
-  downloadCSV(rows, 'expenses.csv');
+function vacateRent(id) {
+  const r = (db.rents || []).find(x => x.id === id);
+  if (!r) return;
+  const adv = r.advanceAmount || 0;
+  customConfirm(`Mark "${r.name}" as vacated?\n\nThis stops future monthly reminders and returns the advance of ${fmt(adv)}.`, '🔑', 'Vacate', ok => {
+    if (!ok) return;
+    r.vacated = true;
+    r.vacatedDate = today();
+    r.recurring = false;
+    logActivity(`🔑 Vacated: ${r.name} — advance of ${fmt(adv)} returned`);
+    toast('Marked as vacated — advance returned ✓', 'ok');
+    renderRent();
+    if (window.saveToFirestore) saveToFirestore();
+  });
+}
+
+function addAdvancePayment(id) {
+  const r = (db.rents || []).find(x => x.id === id);
+  if (!r) return;
+  const bal = Math.max(r.amount - (r.advanceAmount||0), 0);
+  const input = prompt(`Add advance payment for "${r.name}"\nRent amount: ${fmt(r.amount)}\nAlready paid in advance: ${fmt(r.advanceAmount||0)}\nRemaining balance: ${fmt(bal)}\n\nEnter amount paid now (₹):`);
+  if (input === null) return;
+  const amt = parseFloat(input);
+  if (!amt || amt <= 0) { toast('Enter a valid amount', 'err'); return; }
+  r.advanceAmount = (r.advanceAmount || 0) + amt;
+  logActivity(`💵 Advance paid for rent "${r.name}": ${fmt(amt)} (total advance: ${fmt(r.advanceAmount)})`);
+  toast('Advance payment recorded ✓', 'ok', 'pay');
+  renderRent();
+  if (window.saveToFirestore) saveToFirestore();
+}
+
+function markRentPaid(id) {
+  const r = (db.rents || []).find(x => x.id === id);
+  if (!r) return;
+  r.paid = true;
+  r.paidDate = today();
+  logActivity(`🏠 Rent paid: ${r.name} — ${fmt(r.amount)}`);
+  toast('Marked as paid ✓', 'ok', 'pay');
+  if (r.recurring && !r.vacated) {
+    // Roll forward to next month. Advance is a security deposit held for as long as you occupy
+    // the shop — it carries forward unchanged and is only returned when you vacate.
+    db.rents.push({ id: uid(), name: r.name, amount: r.amount, dueDate: addMonthsToDate(r.dueDate, 1), advanceAmount: r.advanceAmount||0, notes: r.notes, recurring: true, paid: false, paidDate: null, createdAt: new Date().toISOString() });
+  }
+  renderRent();
+  if (window.saveToFirestore) saveToFirestore();
+}
+
+function deleteRent(id) {
+  db.rents = (db.rents||[]).filter(r => r.id !== id);
+  if (window.saveToFirestore) saveToFirestore();
+  renderRent();
+  toast('Rent record deleted', 'ok');
+}
+
+function exportRentsCSV() {
+  const rows = [['Name','Rent Amount','Advance Held','Due Date','Status','Paid Date','Recurring','Vacated Date','Notes']];
+  (db.rents||[]).forEach(r => rows.push([
+    r.name, r.amount, r.advanceAmount||0, r.dueDate,
+    r.vacated ? 'Vacated' : (r.paid ? 'Paid' : (daysUntil(r.dueDate)<0 ? 'Overdue' : 'Pending')),
+    r.paidDate||'', r.recurring?'Yes':'No', r.vacatedDate||'', r.notes||''
+  ]));
+  downloadCSV(rows, 'rent-records.csv');
+}
+
+// ── Alert 2 days & 1 day before rent due (in-app 🔔 bell panel only) ──
+function checkRentDueNotifications() {
+  if (!db.rents) return;
+  db.rents.filter(r => !r.paid && !r.vacated).forEach(r => {
+    const du = daysUntil(r.dueDate);
+    let msg = null;
+    if (du === 2) msg = `🏠 Rent due in 2 days: ${r.name} — ${fmt(r.amount)} on ${fmtD(r.dueDate)}`;
+    else if (du === 1) msg = `🏠 Rent due tomorrow: ${r.name} — ${fmt(r.amount)} on ${fmtD(r.dueDate)}`;
+    else if (du === 0) msg = `🏠 Rent due TODAY: ${r.name} — ${fmt(r.amount)}`;
+    else if (du < 0) msg = `⚠️ Rent overdue by ${Math.abs(du)}d: ${r.name} — ${fmt(r.amount)}`;
+    if (!msg) return;
+    const exists = _notifications.find(n => n.msg === msg);
+    if (exists) return;
+    addNotification(msg, du < 0 ? 'err' : 'warn', '🏠');
+  });
 }
 
 // ══════════════════════════════════════════
@@ -8687,7 +8722,9 @@ function renderPL() {
     return a + (p ? p.buy * it.qty : 0);
   }, 0);
   const grossProfit = revenue - costOfGoods;
-  const expenses = (db.expenses || []).filter(e => filterDate(e.date)).reduce((a, e) => a + e.amount, 0);
+  const legacyExpenses = (db.expenses || []).filter(e => filterDate(e.date)).reduce((a, e) => a + e.amount, 0);
+  const rentExpenses = (db.rents || []).filter(r => r.paid && r.paidDate && filterDate(r.paidDate)).reduce((a, r) => a + r.amount, 0);
+  const expenses = legacyExpenses + rentExpenses;
   const netProfit = grossProfit - expenses;
   const margin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
 
@@ -8819,6 +8856,7 @@ function checkAllNotifications() {
   checkLowStockNotifications();
   checkPreorderDueNotifications();
   checkHighDueNotifications();
+  checkRentDueNotifications();
 }
 
 function checkLowStockNotifications() {
@@ -8834,7 +8872,7 @@ function checkLowStockNotifications() {
 function checkPreorderDueNotifications() {
   const todayStr = today();
   const tmr = new Date(); tmr.setDate(tmr.getDate()+1);
-  const tomorrowStr = tmr.toISOString().split('T')[0];
+  const tomorrowStr = toLocalDateStr(tmr);
   (db.preorders||[]).filter(po => po.status !== 'delivered' && po.status !== 'cancelled').forEach(po => {
     if (po.deliveryDate === todayStr || po.deliveryDate === tomorrowStr) {
       const exists = _notifications.find(n => n.msg.includes(po.customerName) && n.msg.includes('delivery'));
@@ -8998,6 +9036,7 @@ function downloadBackup(type) {
       staffList: db.staffList || [],
       preorders: db.preorders || [],
       expenses:  db.expenses || [],
+      rents:     db.rents || [],
       activityLog: (window._activityLog||[]).slice(-200)
     };
     label = 'full';
@@ -9168,7 +9207,7 @@ function gdriveCheckAndAutoBackup() {
   const autoEnabled = localStorage.getItem(GDRIVE_LS_AUTO) !== 'false';
   if (!autoEnabled) return;
   if (!_gdriveToken) return;
-  const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const today = toLocalDateStr(new Date()); // YYYY-MM-DD
   const last  = localStorage.getItem(GDRIVE_LS_LAST);
   if (last === today) {
     gdriveLog('✔️ Backup already done today (' + today + ')');
@@ -9204,6 +9243,7 @@ function gdriveBuildBackupData() {
     staffList: db.staffList  || [],
     preorders: db.preorders  || [],
     expenses:  db.expenses   || [],
+    rents:     db.rents      || [],
     activityLog: (window._activityLog||[]).slice(-200)
   };
 }
@@ -9425,6 +9465,7 @@ function importBackupFile(input) {
       if (data.staffList !== undefined) db.staffList = data.staffList;
       if (data.preorders !== undefined) db.preorders = data.preorders;
       if (data.expenses  !== undefined) db.expenses  = data.expenses;
+      if (data.rents     !== undefined) db.rents     = data.rents;
 
       // Push to Firestore
       if (window.saveToFirestore) saveToFirestore();
@@ -9481,6 +9522,7 @@ function confirmDeleteDatabase() {
   db.staffList = [];
   db.preorders = [];
   db.expenses  = [];
+  db.rents     = [];
 
   // Wipe Firestore
   if (window.saveToFirestore) saveToFirestore();
@@ -9554,7 +9596,7 @@ function _applyStaffRestrictions() {
     const ownerOnlyIds = ['addCompBtn','addProdBtn','newSaleBtn','oldBillBtn',
       'addProductsBtn','renameShopBtn','addOldBillDetailBtn','addStaffBtn',
       'damageBtn','sellDamageBtn','damageDetailBtn','creditLimitBtn',
-      'navExpenseBtn','mnExpenses'];
+      'navRentBtn','mnRent'];
     ownerOnlyIds.forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
     // Staff banner
     const existing = document.getElementById('staffBanner');
@@ -9612,6 +9654,7 @@ window.saveToFirestore = async function() {
       staffList: db.staffList  || [],
       preorders: db.preorders  || [],
       expenses:  db.expenses   || [],
+      rents:     db.rents      || [],
       updatedAt: new Date().toISOString()
     });
     await _db.collection("sivasakthi").doc("maindb").set(payload);
@@ -9637,6 +9680,7 @@ window.loadFromFirestore = async function() {
       if (data.staffList !== undefined) db.staffList = data.staffList || [];
       if (data.preorders !== undefined) db.preorders = data.preorders || [];
       if (data.expenses  !== undefined) db.expenses  = data.expenses  || [];
+      if (data.rents     !== undefined) db.rents     = data.rents     || [];
       console.log("✅ Firestore load SUCCESS — shops:", db.shops.length);
     }
     document.getElementById('db-status').textContent = '🟢 Cloud Sync ON';
