@@ -7502,6 +7502,10 @@ function downloadPDFInvoice(shopId, sessId){
     doc.setFont('times','bold');
     doc.text('Rs.'+(it.sellPrice*it.qty).toFixed(2), pageW-margin, y, {align:'right'});
     doc.setFont('times','normal');
+    // Thin separator line under each product for easy scanning
+    doc.setDrawColor(225); doc.setLineWidth(0.15);
+    doc.line(margin, y+2, pageW-margin, y+2);
+    doc.setDrawColor(0);
     y+=6;
     pageItemCount++;
   });
