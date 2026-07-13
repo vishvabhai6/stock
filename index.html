@@ -1203,6 +1203,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <button class="nav-btn" onclick="showPage('preorder')">📋 Pre-Order</button>
     <button class="nav-btn" id="navStaffBtn" onclick="showPage('staff')" style="display:none">👥 Staff</button>
     <button class="nav-btn" id="navRentBtn" onclick="showPage('rent')">🏠 Rent</button>
+    <button class="nav-btn" id="navDailyBtn" onclick="showPage('daily')">💰 Daily</button>
     <button class="nav-btn" id="navAnalyticsBtn" onclick="showPage('analytics')">📈 Analytics</button>
     <button class="nav-btn" id="navBackupBtn" onclick="showPage('backup')">💾 Backup</button>
   </nav>
@@ -1235,6 +1236,9 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </button>
   <button class="mob-btn" id="mnRent" onclick="showPage('rent')">
     <span class="mob-ico">🏠</span>Rent
+  </button>
+  <button class="mob-btn" id="mnDaily" onclick="showPage('daily')">
+    <span class="mob-ico">💰</span>Daily
   </button>
   <button class="mob-btn" id="mnAnalytics" onclick="showPage('analytics')">
     <span class="mob-ico">📈</span>Analytics
@@ -1847,6 +1851,55 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
+<!-- ══════════ DAILY SPENDING & SAVINGS PAGE ══════════ -->
+<div class="page" id="page-daily">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+    <div>
+      <div style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:700">💰 Daily Spending & Savings</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-top:3px">Log what you spend and save each day — check it back by date, month or year</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="exportDailyCSV()">⬇️ Export CSV</button>
+      <button class="btn btn-primary" onclick="openAddDailyModal()">＋ Add Entry</button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="stats-row" id="dailySummaryCards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:18px"></div>
+
+  <!-- Type filter -->
+  <div class="hist-filter-bar" style="margin-bottom:10px">
+    <span class="hf-label">Type:</span>
+    <button class="hf-btn on" id="dtf-typeall" onclick="setDailyTypeFilter('all',this)">All</button>
+    <button class="hf-btn" id="dtf-typespend" onclick="setDailyTypeFilter('spend',this)">💸 Spending</button>
+    <button class="hf-btn" id="dtf-typesave" onclick="setDailyTypeFilter('save',this)">💰 Savings</button>
+  </div>
+
+  <!-- Date filter bar -->
+  <div class="hist-filter-bar" style="margin-bottom:14px">
+    <span class="hf-label">Show:</span>
+    <button class="hf-btn on" id="dsf-all" onclick="setDailyFilter('all',this)">All</button>
+    <button class="hf-btn" id="dsf-date" onclick="setDailyFilter('date',this)">By Date</button>
+    <button class="hf-btn" id="dsf-month" onclick="setDailyFilter('month',this)">By Month</button>
+    <button class="hf-btn" id="dsf-year" onclick="setDailyFilter('year',this)">By Year</button>
+    <input type="date" class="hf-inp" id="dsf-date-inp" style="display:none" oninput="renderDailyLedger()">
+    <input type="month" class="hf-inp" id="dsf-month-inp" style="display:none" oninput="renderDailyLedger()">
+    <select class="hf-inp" id="dsf-year-inp" style="display:none" onchange="renderDailyLedger()"></select>
+    <div style="margin-left:auto">
+      <div class="search-wrap" style="min-width:160px">
+        <span style="color:var(--text3)">🔍</span>
+        <input type="text" placeholder="Search note…" id="dsf-search" oninput="renderDailyLedger()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Entries List -->
+  <div class="glass">
+    <div class="sec-title" style="margin-bottom:14px">Entries</div>
+    <div id="dailyList"></div>
+  </div>
+</div>
+
 <!-- ══════════ ANALYTICS PAGE ══════════ -->
 <div class="page" id="page-analytics">
   <div style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:6px">📈 Advanced Analytics</div>
@@ -2008,7 +2061,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="glass" style="padding:22px;border-color:rgba(251,113,133,.35)">
       <div style="font-size:2rem;margin-bottom:10px">🗑️</div>
       <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1rem;margin-bottom:6px;color:var(--red)">Delete All Data</div>
-      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Permanently wipe everything — companies, products, shops, sessions, staff, expenses. Cannot be undone.</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:16px;line-height:1.6">Permanently wipe everything — companies, products, shops, sessions, staff, expenses, rent records, daily spending/savings. Cannot be undone.</div>
       <button class="btn" style="width:100%;justify-content:center;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.4);color:var(--red)" onclick="confirmDeleteDatabase()">🗑️ Delete Everything</button>
     </div>
 
@@ -2567,6 +2620,40 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   </div>
 </div>
 
+<!-- Rent Transaction History Modal -->
+<div class="modal-ov" id="mRentHistory">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title"><span id="rentHistTitle">📜 Transaction History</span><button class="modal-x" onclick="closeM('mRentHistory')">✕</button></div>
+    <div id="rentHistSummary" style="margin-bottom:14px"></div>
+    <div id="rentHistList" style="max-height:420px;overflow-y:auto"></div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mRentHistory')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Daily Spending/Savings Entry Modal -->
+<div class="modal-ov" id="mAddDaily">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title"><span id="mAddDailyTitle">💰 Add Daily Entry</span><button class="modal-x" onclick="closeM('mAddDaily')">✕</button></div>
+    <div class="fg">
+      <label>Type</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="hf-btn on" id="dailyTypeBtnSpend" style="flex:1;padding:10px" onclick="setDailyEntryType('spend')">💸 Spending</button>
+        <button type="button" class="hf-btn" id="dailyTypeBtnSave" style="flex:1;padding:10px" onclick="setDailyEntryType('save')">💰 Saving</button>
+      </div>
+      <input type="hidden" id="dailyTypeInp" value="spend">
+    </div>
+    <div class="fg"><label>Date</label><input type="date" id="dailyDate"></div>
+    <div class="fg"><label>Amount (₹)</label><input type="number" id="dailyAmount" placeholder="e.g. 250"></div>
+    <div class="fg"><label>Note (optional)</label><input type="text" id="dailyNote" placeholder="e.g. Groceries, tea, fuel…"></div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mAddDaily')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDailyEntry()">✓ Save Entry</button>
+    </div>
+  </div>
+</div>
+
 <!-- Notification Panel -->
 <div id="notifPanel" style="display:none;position:fixed;top:70px;right:18px;z-index:9000;width:340px;background:var(--nav-bg);border:1px solid var(--glass-border);border-radius:18px;box-shadow:0 16px 48px rgba(0,0,0,.45);backdrop-filter:blur(24px);overflow:hidden">
   <div style="padding:14px 16px;border-bottom:1px solid var(--glass-border);display:flex;align-items:center;justify-content:space-between">
@@ -2592,7 +2679,8 @@ let db = {
   staffList:[],  // {id, name, email, createdAt}
   preorders:[],   // {id, customerType, customerName, shopId, contact, handledBy, address, orderDate, deliveryDate, items:[{productId,name,qty,note,stockOk}], notes, priority, status, createdAt, updatedAt}
   expenses:[],   // {id, date, amount, category, desc, payMethod, createdAt} — legacy, kept for old backups
-  rents:[]       // {id, name, amount, dueDate, advanceAmount, notes, recurring, paid, paidDate, createdAt, vacated, vacatedDate}
+  rents:[],      // {id, name, amount, dueDate, advanceAmount, notes, recurring, paid, paidDate, createdAt, vacated, vacatedDate}
+  daily:[]       // {id, date, type:'spend'|'save', amount, note, createdAt}
   // shop:{id,name,sessions:[],creditLimit}
   // session:{id,date,items:[{productId,name,sellPrice,qty}],total,paid,payMethod,balance,prevBalance,payments:[]}
   // payment:{id,date,amount,method}
@@ -2880,11 +2968,12 @@ function showPage(name){
   if(name==='preorder'){ initPoForm(); renderPoList(); renderPoSummaryStrip(); }
   if(name==='staff') renderStaffTab();
   if(name==='rent') { renderRent(); }
+  if(name==='daily') { renderDailyLedger(); }
   if(name==='analytics') { renderAnalytics(); }
   if(name==='backup') { renderBackupCloudInfo(); gdriveUpdateUI(!!_gdriveToken); }
 
   // Update mobile nav highlight for new pages
-  const extMap={rent:'mnRent',analytics:'mnAnalytics',backup:'mnBackup'};
+  const extMap={rent:'mnRent',daily:'mnDaily',analytics:'mnAnalytics',backup:'mnBackup'};
   if(extMap[name]){const el=document.getElementById(extMap[name]);if(el)el.classList.add('active');}
 
   // Apply global staff restriction badge
@@ -7277,7 +7366,7 @@ function downloadPDFInvoice(shopId, sessId){
     rdoc.setLineWidth(0.3); rdoc.line(rM,278,rW-rM,278);
     rdoc.setFont('times','italic'); rdoc.setFontSize(8); rdoc.setTextColor(100);
     rdoc.text('Sivasakthi Marketing  ·  Return / Credit Note', rW/2, 283, {align:'center'});
-    rdoc.save('Return-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
+    savePdfSmart(rdoc, 'Return-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
     toast('Return Note PDF downloaded 📄','ok','pay');
     return;
   }
@@ -7537,7 +7626,7 @@ function downloadPDFInvoice(shopId, sessId){
   doc.setFont('times','normal'); doc.setFontSize(6.5); doc.setTextColor(120);
   doc.text('Authorized Signature', pageW-margin, 275.5, {align:'right'});
 
-  doc.save('Bill-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
+  savePdfSmart(doc, 'Bill-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
   toast('PDF Bill downloaded 📄','ok','pay');
 }
 
@@ -7558,6 +7647,68 @@ function _getJsPDF(){
   if(window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
   if(window.jsPDF) return window.jsPDF;
   return null;
+}
+
+// ══════════════════════════════════════════
+// MOBILE-SAFE PDF SAVE
+// ── jsPDF's doc.save() builds a hidden <a download> and .click()s it. Many
+// mobile browsers and in-app webviews (iOS Safari, Android WebView, embedded
+// browsers) silently ignore the download attribute or block the synthetic
+// click, so nothing ever reaches the Downloads/Files app. This wrapper tries,
+// in order: the native Share Sheet (most reliable "save" path on phones —
+// user gets a real Save to Files / Save to Photos option), then a normal
+// download-anchor click, then finally opens the PDF in a new tab so the user
+// can use the browser's own share/save/print option as a last resort.
+// ══════════════════════════════════════════
+function isMobileDevice(){
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 768;
+}
+
+function savePdfSmart(doc, filename){
+  try{
+    if(!isMobileDevice()){
+      doc.save(filename);
+      return;
+    }
+    const blob = doc.output('blob');
+    // 1) Native share sheet — works best on iOS Safari / Android Chrome / most in-app webviews
+    if(navigator.canShare && navigator.share){
+      try{
+        const file = new File([blob], filename, {type:'application/pdf'});
+        if(navigator.canShare({files:[file]})){
+          navigator.share({files:[file], title:filename}).catch(()=>{ _pdfBlobFallback(blob, filename); });
+          return;
+        }
+      }catch(shareErr){ /* fall through to next method */ }
+    }
+    _pdfBlobFallback(blob, filename);
+  }catch(e){
+    console.error('savePdfSmart failed, falling back to doc.save()', e);
+    try{ doc.save(filename); }
+    catch(e2){ toast('Could not save PDF — try again','err'); }
+  }
+}
+
+function _pdfBlobFallback(blob, filename){
+  const url = URL.createObjectURL(blob);
+  // Try a real download click first (works on most Android Chrome / desktop-like mobile browsers)
+  try{
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }catch(e){ /* ignore, we still open the tab below */ }
+  // Always also open the PDF in a new tab — if the download attribute was ignored
+  // (common on iOS Safari / locked-down webviews), the user can still tap
+  // Share → Save to Files from the browser's own PDF viewer.
+  setTimeout(()=>{
+    const win = window.open(url, '_blank');
+    if(!win){ toast('Allow pop-ups to view/save the PDF, or try again','info'); }
+  }, 250);
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 
 function downloadRetailPDF(sh, sess){
@@ -7817,7 +7968,7 @@ function downloadRetailPDF(sh, sess){
   doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,180,180);
   doc.text('Thank you for shopping with us!', pW/2, 294, {align:'center'});
 
-  doc.save('Retail-Receipt-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
+  savePdfSmart(doc, 'Retail-Receipt-'+sh.name.replace(/\s+/g,'-')+'-'+sess.date+'.pdf');
   toast('Retail PDF downloaded 📄','ok','pay');
 }
 
@@ -8446,7 +8597,7 @@ function saveRent() {
   if (!amount || amount <= 0) { toast('Enter valid amount', 'err'); return; }
   if (!dueDate) { toast('Enter due date', 'err'); return; }
   if (!db.rents) db.rents = [];
-  db.rents.push({ id: uid(), name, amount, dueDate, advanceAmount, notes, recurring, paid: false, paidDate: null, createdAt: new Date().toISOString() });
+  db.rents.push({ id: uid(), seriesId: uid(), name, amount, dueDate, advanceAmount, notes, recurring, paid: false, paidDate: null, createdAt: new Date().toISOString() });
   logActivity(`🏠 Rent added: ${name} — ${fmt(amount)} due ${fmtD(dueDate)}${advanceAmount>0?` (advance paid: ${fmt(advanceAmount)})`:''}`);
   toast('Rent saved ✓', 'ok', 'pay');
   closeM('mAddRent');
@@ -8465,7 +8616,7 @@ function renderRent() {
   const q = (document.getElementById('rentf-search').value || '').toLowerCase();
   const activeFilter = document.querySelector('[id^="rentf-"][class*="on"]')?.id || 'rentf-all';
 
-  let rents = [...db.rents].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  let rents = getRentSeriesRepresentatives().sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   if (activeFilter === 'rentf-pending') rents = rents.filter(r => !r.paid && !r.vacated);
   if (activeFilter === 'rentf-paid') rents = rents.filter(r => r.paid && !r.vacated);
   if (activeFilter === 'rentf-overdue') rents = rents.filter(r => !r.paid && !r.vacated && daysUntil(r.dueDate) < 0);
@@ -8527,12 +8678,96 @@ function renderRent() {
       <div class="txn-amt">
         <div class="txn-total">${fmt(r.amount)}</div>
       </div>
+      <button onclick="openRentHistory('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:4px" title="Transaction History">📜</button>
       ${isOwner() && !r.paid && !r.vacated ? `<button onclick="addAdvancePayment('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:.8rem;padding:4px" title="Add Advance Payment">💵</button>` : ''}
       ${isOwner() && !r.paid && !r.vacated ? `<button onclick="markRentPaid('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--green);font-size:.8rem;padding:4px" title="Mark Paid">✅</button>` : ''}
       ${isOwner() && !r.vacated ? `<button onclick="vacateRent('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--warn);font-size:.8rem;padding:4px" title="Vacate — return advance">🔑</button>` : ''}
       ${isOwner() ? `<button onclick="deleteRent('${r.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:4px" title="Delete">🗑️</button>` : ''}
     </div>
   `;
+  }).join('');
+}
+
+// ── Rent Transaction History (per property/tenant series) ──
+// Cycles created before this feature don't have a seriesId, so we fall back
+// to grouping by name for those — new rents always get a real seriesId.
+function rentSeriesKey(r) {
+  return r.seriesId || ('name:' + r.name);
+}
+
+function getRentSeries(r) {
+  const key = rentSeriesKey(r);
+  return (db.rents || []).filter(x => rentSeriesKey(x) === key)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+}
+
+// Rent Records list shows ONE row per property — its current/active cycle
+// (furthest-out dueDate in the series, i.e. whatever was created most recently
+// by rollover). Every earlier paid cycle is still there, just tucked behind
+// that row's 📜 Transaction History instead of cluttering the main list.
+function getRentSeriesRepresentatives() {
+  const map = new Map();
+  (db.rents || []).forEach(r => {
+    const key = rentSeriesKey(r);
+    const existing = map.get(key);
+    if (!existing || r.dueDate > existing.dueDate ||
+        (r.dueDate === existing.dueDate && (r.createdAt||'') > (existing.createdAt||''))) {
+      map.set(key, r);
+    }
+  });
+  return Array.from(map.values());
+}
+
+function openRentHistory(id) {
+  const r = (db.rents || []).find(x => x.id === id);
+  if (!r) return;
+  renderRentHistoryModal(r);
+  openM('mRentHistory');
+}
+
+function renderRentHistoryModal(r) {
+  const cycles = getRentSeries(r);
+  const latest = cycles[cycles.length - 1];
+  document.getElementById('rentHistTitle').textContent = `📜 ${r.name} — Transaction History`;
+
+  const totalCycles = cycles.length;
+  const paidCycles = cycles.filter(c => c.paid);
+  const totalCollected = paidCycles.reduce((a, c) => a + c.amount, 0);
+  const pendingCycles = cycles.filter(c => !c.paid && !c.vacated);
+  const totalPending = pendingCycles.reduce((a, c) => a + c.amount, 0);
+  const currentAdvance = latest && !latest.vacated ? (latest.advanceAmount || 0) : 0;
+  const isVacatedSeries = latest && latest.vacated;
+
+  document.getElementById('rentHistSummary').innerHTML = `
+    <div class="qs-strip">
+      <div class="stat-card sc-green" style="padding:12px"><div class="stat-label">Total Collected</div><div class="stat-value" style="font-size:.92rem">${fmt(totalCollected)}</div></div>
+      <div class="stat-card ${totalPending?'sc-warn':'sc-cyan'}" style="padding:12px"><div class="stat-label">Pending</div><div class="stat-value" style="font-size:.92rem">${fmt(totalPending)}</div></div>
+      <div class="stat-card sc-cyan" style="padding:12px"><div class="stat-label">Months Recorded</div><div class="stat-value" style="font-size:.92rem">${totalCycles}</div></div>
+      <div class="stat-card ${isVacatedSeries?'sc-red':'sc-green'}" style="padding:12px"><div class="stat-label">${isVacatedSeries?'Vacated':'Advance Held'}</div><div class="stat-value" style="font-size:.92rem">${isVacatedSeries?'🔑 Yes':fmt(currentAdvance)}</div></div>
+    </div>
+  `;
+
+  if (!cycles.length) {
+    document.getElementById('rentHistList').innerHTML = '<div class="empty"><div class="empty-ico">🏠</div><div style="font-size:.8rem">No history yet</div></div>';
+    return;
+  }
+
+  document.getElementById('rentHistList').innerHTML = cycles.slice().reverse().map(c => {
+    const du = daysUntil(c.dueDate);
+    let statusHtml, bg;
+    if (c.vacated) { statusHtml = `🔑 Vacated ${c.vacatedDate?('on '+fmtD(c.vacatedDate)):''}`; bg = 'rgba(148,163,184,.12)'; }
+    else if (c.paid) { statusHtml = `✅ Paid on ${fmtD(c.paidDate)}`; bg = 'rgba(134,239,172,.12)'; }
+    else if (du < 0) { statusHtml = `⚠️ Overdue by ${Math.abs(du)}d`; bg = 'rgba(251,113,133,.12)'; }
+    else { statusHtml = `Due ${fmtD(c.dueDate)}`; bg = 'rgba(249,168,212,.08)'; }
+    return `
+    <div class="txn-row" style="margin-bottom:8px">
+      <div class="txn-ico" style="background:${bg}">🏠</div>
+      <div class="txn-info">
+        <div class="txn-nm">Rent for ${fmtD(c.dueDate).slice(3)}</div>
+        <div class="txn-mt">Due ${fmtD(c.dueDate)} · ${statusHtml}${c.advanceAmount?(' · Advance on file: '+fmt(c.advanceAmount)):''}${c.notes?(' · '+c.notes):''}</div>
+      </div>
+      <div class="txn-amt"><div class="txn-total">${fmt(c.amount)}</div></div>
+    </div>`;
   }).join('');
 }
 
@@ -8577,7 +8812,7 @@ function markRentPaid(id) {
   if (r.recurring && !r.vacated) {
     // Roll forward to next month. Advance is a security deposit held for as long as you occupy
     // the shop — it carries forward unchanged and is only returned when you vacate.
-    db.rents.push({ id: uid(), name: r.name, amount: r.amount, dueDate: addMonthsToDate(r.dueDate, 1), advanceAmount: r.advanceAmount||0, notes: r.notes, recurring: true, paid: false, paidDate: null, createdAt: new Date().toISOString() });
+    db.rents.push({ id: uid(), seriesId: r.seriesId || r.id, name: r.name, amount: r.amount, dueDate: addMonthsToDate(r.dueDate, 1), advanceAmount: r.advanceAmount||0, notes: r.notes, recurring: true, paid: false, paidDate: null, createdAt: new Date().toISOString() });
   }
   renderRent();
   if (window.saveToFirestore) saveToFirestore();
@@ -8615,6 +8850,136 @@ function checkRentDueNotifications() {
     if (exists) return;
     addNotification(msg, du < 0 ? 'err' : 'warn', '🏠');
   });
+}
+
+// ══════════════════════════════════════════
+// FEATURE: DAILY SPENDING & SAVINGS
+// ══════════════════════════════════════════
+let _dailyFilter = 'all';
+let _dailyTypeFilter = 'all';
+
+function openAddDailyModal() {
+  document.getElementById('dailyDate').value = today();
+  document.getElementById('dailyAmount').value = '';
+  document.getElementById('dailyNote').value = '';
+  setDailyEntryType('spend');
+  openM('mAddDaily');
+}
+
+function setDailyEntryType(type) {
+  document.getElementById('dailyTypeInp').value = type;
+  document.getElementById('dailyTypeBtnSpend').classList.toggle('on', type === 'spend');
+  document.getElementById('dailyTypeBtnSave').classList.toggle('on', type === 'save');
+}
+
+function saveDailyEntry() {
+  const type = document.getElementById('dailyTypeInp').value || 'spend';
+  const date = document.getElementById('dailyDate').value;
+  const amount = parseFloat(document.getElementById('dailyAmount').value) || 0;
+  const note = document.getElementById('dailyNote').value.trim();
+  if (!date) { toast('Enter a date', 'err'); return; }
+  if (!amount || amount <= 0) { toast('Enter a valid amount', 'err'); return; }
+  if (!db.daily) db.daily = [];
+  db.daily.push({ id: uid(), date, type, amount, note, createdAt: new Date().toISOString() });
+  logActivity(`${type==='save'?'💰 Saved':'💸 Spent'} ${fmt(amount)} on ${fmtD(date)}${note?(' — '+note):''}`);
+  toast(type==='save' ? 'Saving recorded ✓' : 'Spending recorded ✓', 'ok', 'pay');
+  closeM('mAddDaily');
+  renderDailyLedger();
+  if (window.saveToFirestore) saveToFirestore();
+}
+
+function deleteDailyEntry(id) {
+  customConfirm('Delete this entry? This cannot be undone.', '🗑️', 'Delete', ok => {
+    if (!ok) return;
+    db.daily = (db.daily || []).filter(d => d.id !== id);
+    if (window.saveToFirestore) saveToFirestore();
+    renderDailyLedger();
+    toast('Entry deleted', 'ok');
+  });
+}
+
+function setDailyTypeFilter(t, btn) {
+  _dailyTypeFilter = t;
+  ['typeall','typespend','typesave'].forEach(x => document.getElementById('dtf-'+x).classList.remove('on'));
+  btn.classList.add('on');
+  renderDailyLedger();
+}
+
+function setDailyFilter(f, btn) {
+  _dailyFilter = f;
+  ['all','date','month','year'].forEach(x => document.getElementById('dsf-'+x).classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('dsf-date-inp').style.display  = f==='date'?'':'none';
+  document.getElementById('dsf-month-inp').style.display = f==='month'?'':'none';
+  document.getElementById('dsf-year-inp').style.display  = f==='year'?'':'none';
+  renderDailyLedger();
+}
+
+function renderDailyLedger() {
+  if (!db.daily) db.daily = [];
+
+  // Populate year select
+  const yrSel = document.getElementById('dsf-year-inp');
+  const years = [...new Set(db.daily.map(d => d.date.substr(0,4)))].sort().reverse();
+  const nowYear = String(new Date().getFullYear());
+  const yearOpts = years.length ? years : [nowYear];
+  yrSel.innerHTML = yearOpts.map(y => `<option value="${y}">${y}</option>`).join('');
+
+  const filterDate  = document.getElementById('dsf-date-inp').value;
+  const filterMonth = document.getElementById('dsf-month-inp').value;
+  const filterYear  = yrSel.value;
+  const q = (document.getElementById('dsf-search').value || '').toLowerCase();
+
+  let rows = [...db.daily];
+  if (_dailyTypeFilter === 'spend') rows = rows.filter(d => d.type === 'spend');
+  if (_dailyTypeFilter === 'save')  rows = rows.filter(d => d.type === 'save');
+  if (_dailyFilter === 'date'  && filterDate)  rows = rows.filter(d => d.date === filterDate);
+  if (_dailyFilter === 'month' && filterMonth) rows = rows.filter(d => d.date.startsWith(filterMonth));
+  if (_dailyFilter === 'year'  && filterYear)  rows = rows.filter(d => d.date.startsWith(filterYear));
+  if (q) rows = rows.filter(d => (d.note||'').toLowerCase().includes(q));
+  rows.sort((a,b) => b.date.localeCompare(a.date) || (b.createdAt||'').localeCompare(a.createdAt||''));
+
+  const totalSpend = rows.filter(d=>d.type==='spend').reduce((a,d)=>a+d.amount,0);
+  const totalSave  = rows.filter(d=>d.type==='save').reduce((a,d)=>a+d.amount,0);
+  const net = totalSave - totalSpend;
+
+  document.getElementById('dailySummaryCards').innerHTML = `
+    <div class="stat-card sc-red" style="padding:16px"><div class="stat-label">Total Spending</div><div class="stat-value" style="font-size:1rem;color:var(--red)">${fmt(totalSpend)}</div></div>
+    <div class="stat-card sc-green" style="padding:16px"><div class="stat-label">Total Savings</div><div class="stat-value" style="font-size:1rem;color:var(--green)">${fmt(totalSave)}</div></div>
+    <div class="stat-card ${net>=0?'sc-green':'sc-red'}" style="padding:16px"><div class="stat-label">Net (Save − Spend)</div><div class="stat-value" style="font-size:1rem;color:${net>=0?'var(--green)':'var(--red)'}">${fmt(net)}</div></div>
+    <div class="stat-card sc-cyan" style="padding:16px"><div class="stat-label">Entries</div><div class="stat-value" style="font-size:1rem">${rows.length}</div></div>
+  `;
+
+  if (!rows.length) {
+    document.getElementById('dailyList').innerHTML = '<div class="empty"><div class="empty-ico">💰</div><div style="font-size:.8rem">No entries found</div></div>';
+    return;
+  }
+
+  document.getElementById('dailyList').innerHTML = rows.map(d => {
+    const isSave = d.type === 'save';
+    const bg = isSave ? 'rgba(134,239,172,.12)' : 'rgba(251,113,133,.12)';
+    return `
+    <div class="txn-row" style="margin-bottom:8px">
+      <div class="txn-ico" style="background:${bg}">${isSave?'💰':'💸'}</div>
+      <div class="txn-info">
+        <div class="txn-nm">${isSave?'Saving':'Spending'}${d.note?(' — '+d.note):''}</div>
+        <div class="txn-mt">${fmtD(d.date)}</div>
+      </div>
+      <div class="txn-amt">
+        <div class="txn-total" style="color:${isSave?'var(--green)':'var(--red)'}">${isSave?'+':'-'}${fmt(d.amount)}</div>
+      </div>
+      ${isOwner() ? `<button onclick="deleteDailyEntry('${d.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:.8rem;padding:4px" title="Delete">🗑️</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function exportDailyCSV() {
+  const rows = [['Date','Type','Amount','Note']];
+  (db.daily||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(d => rows.push([
+    d.date, d.type==='save'?'Saving':'Spending', d.amount, d.note||''
+  ]));
+  downloadCSV(rows, 'daily-spending-savings.csv');
+  toast('Daily ledger exported 📥', 'ok', 'pay');
 }
 
 // ══════════════════════════════════════════
@@ -9042,6 +9407,7 @@ function downloadBackup(type) {
       preorders: db.preorders || [],
       expenses:  db.expenses || [],
       rents:     db.rents || [],
+      daily:     db.daily || [],
       activityLog: (window._activityLog||[]).slice(-200)
     };
     label = 'full';
@@ -9249,6 +9615,7 @@ function gdriveBuildBackupData() {
     preorders: db.preorders  || [],
     expenses:  db.expenses   || [],
     rents:     db.rents      || [],
+    daily:     db.daily      || [],
     activityLog: (window._activityLog||[]).slice(-200)
   };
 }
@@ -9471,6 +9838,7 @@ function importBackupFile(input) {
       if (data.preorders !== undefined) db.preorders = data.preorders;
       if (data.expenses  !== undefined) db.expenses  = data.expenses;
       if (data.rents     !== undefined) db.rents     = data.rents;
+      if (data.daily     !== undefined) db.daily     = data.daily;
 
       // Push to Firestore
       if (window.saveToFirestore) saveToFirestore();
@@ -9528,6 +9896,7 @@ function confirmDeleteDatabase() {
   db.preorders = [];
   db.expenses  = [];
   db.rents     = [];
+  db.daily     = [];
 
   // Wipe Firestore
   if (window.saveToFirestore) saveToFirestore();
@@ -9601,7 +9970,7 @@ function _applyStaffRestrictions() {
     const ownerOnlyIds = ['addCompBtn','addProdBtn','newSaleBtn','oldBillBtn',
       'addProductsBtn','renameShopBtn','addOldBillDetailBtn','addStaffBtn',
       'damageBtn','sellDamageBtn','damageDetailBtn','creditLimitBtn',
-      'navRentBtn','mnRent'];
+      'navRentBtn','mnRent','navDailyBtn','mnDaily'];
     ownerOnlyIds.forEach(id => { const el = document.getElementById(id); if(el) el.style.display='none'; });
     // Staff banner
     const existing = document.getElementById('staffBanner');
@@ -9660,6 +10029,7 @@ window.saveToFirestore = async function() {
       preorders: db.preorders  || [],
       expenses:  db.expenses   || [],
       rents:     db.rents      || [],
+      daily:     db.daily      || [],
       updatedAt: new Date().toISOString()
     });
     await _db.collection("sivasakthi").doc("maindb").set(payload);
@@ -9686,6 +10056,7 @@ window.loadFromFirestore = async function() {
       if (data.preorders !== undefined) db.preorders = data.preorders || [];
       if (data.expenses  !== undefined) db.expenses  = data.expenses  || [];
       if (data.rents     !== undefined) db.rents     = data.rents     || [];
+      if (data.daily     !== undefined) db.daily     = data.daily     || [];
       console.log("✅ Firestore load SUCCESS — shops:", db.shops.length);
     }
     document.getElementById('db-status').textContent = '🟢 Cloud Sync ON';
