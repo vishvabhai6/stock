@@ -2204,10 +2204,12 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <!-- Fields -->
     <div class="form-2col" id="pPriceFields">
       <div class="fg"><label>Buy Price (₹)</label><input type="number" id="pBuy" placeholder="0.00" oninput="calcMargin()"></div>
+      <div class="fg"><label>Landing Cost (₹) <span style="font-size:.68rem;color:var(--text3);font-weight:400">/unit</span></label><input type="number" id="pLanding" placeholder="0.00" min="0" step="0.01" oninput="calcMargin()"></div>
       <div class="fg"><label>Sell Price (₹)</label><input type="number" id="pSell" placeholder="0.00" oninput="calcMargin()"></div>
       <div class="fg"><label>Margin (%)</label><input type="text" id="pMargin" readonly style="opacity:.6;cursor:default"></div>
       <div class="fg" id="pQtyField"><label id="pQtyLabel">Stock Qty</label><input type="number" id="pQty" placeholder="0" min="0" step="0.001"></div>
     </div>
+    <div style="font-size:.7rem;color:var(--text3);margin:-4px 0 4px;line-height:1.5">💡 Landing Cost covers per-unit delivery/arrangement expenses (agent fees, transport, handling). It's added to the Buy Price to get the true cost, which is used to calculate margin &amp; profit.</div>
     <!-- Retail Price field -->
     <div class="fg" id="pRetailPriceField" style="margin-top:4px">
       <label style="display:flex;align-items:center;gap:6px">
@@ -2807,6 +2809,9 @@ let chartFilter='month', selPayMethod='Cash', apPayMethod='Cash', apTargetShopId
 const uid=()=>'_'+Math.random().toString(36).substr(2,9);
 const fmt=n=>'₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtD=d=>new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+// Landed Cost = Buy Price + Landing Cost (per unit cost incurred for delivery/arrangement).
+// All profit/margin calculations should use this instead of raw buy price.
+const landedCost=p=>(p&&p.buy||0)+((p&&p.landing)||0);
 const today=()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const toLocalDateStr=(d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
@@ -3367,7 +3372,7 @@ function renderStockHist(){
       if(_stockHistFilter==='month'&&fm&&!h.date.startsWith(fm)) return;
       if(_stockHistFilter==='year'&&fy&&!h.date.startsWith(fy)) return;
       if(q&&!p.name.toLowerCase().includes(q)&&!(c?c.name:'').toLowerCase().includes(q)) return;
-      rows.push({date:h.date,product:p.name,company:c?c.name:'—',buy:h.buy,sell:h.sell,qty:h.qty||0,note:h.note||'',value:(h.buy||0)*(h.qty||0)});
+      rows.push({date:h.date,product:p.name,company:c?c.name:'—',buy:h.buy,landing:h.landing||0,sell:h.sell,qty:h.qty||0,note:h.note||'',value:((h.buy||0)+(h.landing||0))*(h.qty||0)});
     });
   });
   rows.sort((a,b)=>b.date.localeCompare(a.date));
@@ -3376,7 +3381,7 @@ function renderStockHist(){
   const uniqProds=new Set(rows.map(r=>r.product)).size;
   document.getElementById('stkh-summary').innerHTML=`
     <div class="stat-card sc-purple" style="padding:14px"><div class="stat-label">Units Stocked</div><div class="stat-value" style="font-size:1.1rem">${totQty}</div></div>
-    <div class="stat-card sc-cyan"   style="padding:14px"><div class="stat-label">Stock Value (Buy)</div><div class="stat-value" style="font-size:1.1rem">${fmt(totValue)}</div></div>
+    <div class="stat-card sc-cyan"   style="padding:14px"><div class="stat-label">Stock Value (Landed Cost)</div><div class="stat-value" style="font-size:1.1rem">${fmt(totValue)}</div></div>
     <div class="stat-card sc-blue"   style="padding:14px"><div class="stat-label">Products</div><div class="stat-value" style="font-size:1.1rem">${uniqProds}</div></div>
   `;
   const tb=document.getElementById('stkh-tbody');
@@ -3385,7 +3390,7 @@ function renderStockHist(){
     <td><strong>${fmtD(r.date)}</strong></td>
     <td style="font-weight:600">${r.product}</td>
     <td style="color:var(--text3);font-size:.8rem">${r.company}</td>
-    <td style="color:var(--accent)">${fmt(r.buy)}</td>
+    <td style="color:var(--accent)">${fmt(r.buy)}${r.landing?`<div style="font-size:.68rem;color:#f59e0b">+${fmt(r.landing)} landing</div>`:''}</td>
     <td style="color:var(--green);font-weight:600">${fmt(r.sell)}</td>
     <td><span class="badge bg">${r.qty} units</span></td>
     <td style="font-weight:700">${r.value>0?fmt(r.value):'—'}</td>
@@ -3393,11 +3398,12 @@ function renderStockHist(){
   </tr>`).join('');
 }
 function exportStockHistCSV(){
-  let rows=[['Purchase Date','Product','Company','Buy Price','Sell Price','Qty Added','Total Value','Note']];
+  let rows=[['Purchase Date','Product','Company','Buy Price','Landing Cost','Landed Cost','Sell Price','Qty Added','Total Value','Note']];
   db.products.forEach(p=>{
     const c=db.companies.find(x=>x.id===p.cId);
     (p.priceHistory||[]).forEach(h=>{
-      rows.push([h.date,p.name,c?c.name:'',h.buy,h.sell,h.qty||0,(h.buy||0)*(h.qty||0),h.note||'']);
+      const landed=(h.buy||0)+(h.landing||0);
+      rows.push([h.date,p.name,c?c.name:'',h.buy,h.landing||0,landed,h.sell,h.qty||0,landed*(h.qty||0),h.note||'']);
     });
   });
   rows.sort((a,b)=>b[0].localeCompare(a[0]));
@@ -4057,7 +4063,7 @@ function renderProds(){
   // Update table header to include Date col
   const thead = document.querySelector('#prodTbody').closest('table').querySelector('thead tr');
   if(thead && thead.children.length < 9){
-    thead.innerHTML='<th>Product</th><th>Buy Price</th><th>Sell Price</th><th>Margin</th><th title="Click the stock number to edit it directly">Stock ✏️</th><th style="color:var(--red)">Damaged</th><th>Last Purchase</th><th>Sold</th><th>Actions</th>';
+    thead.innerHTML='<th>Product</th><th title="Buy Price + Landing Cost">Buy Price</th><th>Sell Price</th><th>Margin</th><th title="Click the stock number to edit it directly">Stock ✏️</th><th style="color:var(--red)">Damaged</th><th>Last Purchase</th><th>Sold</th><th>Actions</th>';
   }
   tb.innerHTML=ps.map(p=>{
     const ph = p.priceHistory||[];
@@ -4080,7 +4086,7 @@ function renderProds(){
         ${photoThumb}<strong>${p.name}</strong>
         ${batches.length>1?`<span style="font-size:.68rem;background:rgba(249,168,212,.12);color:var(--accent);border-radius:6px;padding:1px 6px;margin-left:4px">${batches.length} batches</span>`:''}
       </td>
-      <td>${fmt(p.buy)}</td>
+      <td>${fmt(p.buy)}${p.landing?`<div style="font-size:.68rem;color:#f59e0b;margin-top:2px">+${fmt(p.landing)} landing</div><div style="font-size:.68rem;color:var(--text3)">= ${fmt(landedCost(p))} landed</div>`:''}</td>
       <td style="color:var(--green);font-weight:700">${fmt(p.sell)} ${trendHtml}</td>
       <td style="color:#60a5fa;font-weight:700">${p.retailPrice?fmt(p.retailPrice):'<span style="color:var(--text3);font-size:.78rem">—</span>'}</td>
       <td><span class="badge ${mc(p)}">${p.margin.toFixed(1)}%</span></td>
@@ -4115,8 +4121,10 @@ function filterProds(){renderProds();}
 
 function calcMargin(){
   const b=parseFloat(document.getElementById('pBuy').value)||0;
+  const l=parseFloat(document.getElementById('pLanding').value)||0;
   const s=parseFloat(document.getElementById('pSell').value)||0;
-  document.getElementById('pMargin').value=b>0?((s-b)/b*100).toFixed(1)+'%':'0.0%';
+  const cost=b+l;
+  document.getElementById('pMargin').value=cost>0?((s-cost)/cost*100).toFixed(1)+'%':'0.0%';
 }
 
 // ── Product name autocomplete (Add mode) ──
@@ -4258,7 +4266,7 @@ function openProdModal(id=null, defaultMode='restock'){
   _addAsNew=false;
   _prodEditMode=defaultMode;
   // Reset
-  ['pBuy','pSell','pMargin','pQty','pNote','pRetailPrice'].forEach(x=>document.getElementById(x).value='');
+  ['pBuy','pLanding','pSell','pMargin','pQty','pNote','pRetailPrice'].forEach(x=>document.getElementById(x).value='');
   resetProdPhoto(id ? (db.products.find(x=>x.id===id)||{}).photo||'' : '');
   document.getElementById('pDate').value=today();
   document.getElementById('pRestockBanner').style.display='none';
@@ -4285,6 +4293,7 @@ function openProdModal(id=null, defaultMode='restock'){
     setProdEditMode(defaultMode);
     // Fill current prices
     document.getElementById('pBuy').value=p.buy;
+    document.getElementById('pLanding').value=p.landing||'';
     document.getElementById('pSell').value=p.sell;
     calcMargin();
     document.getElementById('pQty').value='';
@@ -4305,12 +4314,14 @@ function openProdModal(id=null, defaultMode='restock'){
             <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:10px">
               <div style="font-size:.65rem;color:var(--text3);margin-bottom:5px">🕒 LAST (${fmtD(last.date)})</div>
               <div style="font-size:.82rem;margin-bottom:3px">Buy: <strong style="color:var(--accent)">${fmt(last.buy)}</strong></div>
+              <div style="font-size:.82rem;margin-bottom:3px">Landing: <strong style="color:#f59e0b">${fmt(last.landing||0)}</strong></div>
               <div style="font-size:.82rem">Sell: <strong style="color:var(--green)">${fmt(last.sell)}</strong></div>
               <div style="font-size:.7rem;color:var(--text3);margin-top:3px">+${last.qty||0} units added</div>
             </div>
             <div style="background:rgba(249,168,212,.07);border:1px solid rgba(249,168,212,.15);border-radius:10px;padding:10px">
               <div style="font-size:.65rem;color:var(--text3);margin-bottom:5px">📝 CURRENT (${fmtD(today())})</div>
               <div style="font-size:.82rem;margin-bottom:3px">Buy: <strong style="color:var(--accent)">${fmt(p.buy)}</strong></div>
+              <div style="font-size:.82rem;margin-bottom:3px">Landing: <strong style="color:#f59e0b">${fmt(p.landing||0)}</strong></div>
               <div style="font-size:.82rem">Sell: <strong style="color:var(--green)">${fmt(p.sell)}</strong></div>
               <div style="font-size:.7rem;color:var(--text3);margin-top:3px">${p.qty} units in stock</div>
             </div>
@@ -4331,6 +4342,7 @@ function openProdModal(id=null, defaultMode='restock'){
             </div>
             <div style="display:flex;gap:12px;margin-top:5px;flex-wrap:wrap">
               <span style="font-size:.8rem">Buy: <strong style="color:var(--accent)">${fmt(h.buy)}</strong></span>
+              ${h.landing?`<span style="font-size:.8rem">Landing: <strong style="color:#f59e0b">${fmt(h.landing)}</strong></span>`:''}
               <span style="font-size:.8rem">Sell: <strong style="color:var(--green)">${fmt(h.sell)}</strong></span>
               ${h.qty?`<span style="font-size:.8rem;color:var(--text3)">+${h.qty} units</span>`:''}
               ${h.note?`<span style="font-size:.75rem;color:var(--text3);font-style:italic">${h.note}</span>`:''}
@@ -4354,13 +4366,15 @@ function openProdModal(id=null, defaultMode='restock'){
 
 function saveProd(){
   const buy=parseFloat(document.getElementById('pBuy').value)||0;
+  const landing=parseFloat(document.getElementById('pLanding').value)||0;
   const sell=parseFloat(document.getElementById('pSell').value)||0;
   const qty=parseFloat(document.getElementById('pQty').value)||0;
   const date=document.getElementById('pDate').value||today();
   const note=document.getElementById('pNote').value.trim();
   const retailPriceVal=parseFloat(document.getElementById('pRetailPrice').value)||0;
   if(!buy||!sell){toast('Enter buy and sell price','err');return;}
-  const margin=buy>0?parseFloat(((sell-buy)/buy*100).toFixed(2)):0;
+  const cost=buy+landing;
+  const margin=cost>0?parseFloat(((sell-cost)/cost*100).toFixed(2)):0;
 
   if(editProdId){
     const p=db.products.find(x=>x.id===editProdId);
@@ -4370,17 +4384,17 @@ function saveProd(){
     if(retailPriceVal>0) p.retailPrice=retailPriceVal; else delete p.retailPrice;
     if(_prodEditMode==='updateprice'){
       // Just update price — no stock change
-      p.buy=buy; p.sell=sell; p.margin=margin;
+      p.buy=buy; p.landing=landing; p.sell=sell; p.margin=margin;
       p.photo=_prodPhotoData; // always save (empty string = no photo)
-      p.priceHistory.push({date,buy,sell,qty:0,note:note||'Price update'});
+      p.priceHistory.push({date,buy,landing,sell,qty:0,note:note||'Price update'});
       toast('Price updated 💹','ok','stock');
     } else {
-      p.buy=buy; p.sell=sell; p.margin=margin;
+      p.buy=buy; p.landing=landing; p.sell=sell; p.margin=margin;
       p.photo=_prodPhotoData;
       if(qty>0){
         p.qty+=qty;
-        p.priceHistory.push({date,buy,sell,qty,note});
-        p.batches.push({id:uid(),date,buy,sell,qty,note});
+        p.priceHistory.push({date,buy,landing,sell,qty,note});
+        p.batches.push({id:uid(),date,buy,landing,sell,qty,note});
         toast(`+${qty} units added ✓ · New stock: ${p.qty}`,'ok','stock');
       } else {
         toast('Product saved ✓','ok','stock');
@@ -4392,11 +4406,11 @@ function saveProd(){
     if(!name){toast('Enter product name','err');return;}
     if(!qty&&qty!==0){toast('Enter stock qty','err');return;}
     const newProd={
-      id:uid(),cId:currCompId,name,buy,sell,margin,qty,sold:0,
+      id:uid(),cId:currCompId,name,buy,landing,sell,margin,qty,sold:0,
       createdAt:date,
       photo:_prodPhotoData||'',
-      priceHistory:[{date,buy,sell,qty,note}],
-      batches:[{id:uid(),date,buy,sell,qty,note}]
+      priceHistory:[{date,buy,landing,sell,qty,note}],
+      batches:[{id:uid(),date,buy,landing,sell,qty,note}]
     };
     if(retailPriceVal>0) newProd.retailPrice=retailPriceVal;
     db.products.push(newProd);
@@ -4411,7 +4425,7 @@ function viewProd(id){
   const p=db.products.find(x=>x.id===id);
   const c=db.companies.find(x=>x.id===p.cId);
   const ph=p.priceHistory||[];
-  const profitPerUnit=p.sell-p.buy;
+  const profitPerUnit=p.sell-landedCost(p);
   const prodPhotoHtml = p.photo ? `<img src="${p.photo}" style="width:72px;height:72px;border-radius:14px;object-fit:cover;border:1px solid var(--glass-border);flex-shrink:0">` : `<div style="width:72px;height:72px;border-radius:14px;background:var(--glass-bg);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0">📦</div>`;
   const totalProfit=profitPerUnit*p.sold;
   // Sparkline: last 5 sell prices
@@ -4436,11 +4450,13 @@ function viewProd(id){
         </div>
         ${sparkSvg?`<div style="text-align:right"><div style="font-size:.65rem;color:var(--text3);margin-bottom:3px">Sell price trend</div>${sparkSvg}</div>`:''}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
         <div class="stat-card sc-cyan" style="padding:14px"><div class="stat-label">Buy Price</div><div class="stat-value" style="font-size:1rem">${fmt(p.buy)}</div></div>
+        <div class="stat-card sc-warn" style="padding:14px"><div class="stat-label">Landing Cost</div><div class="stat-value" style="font-size:1rem">${fmt(p.landing||0)}</div></div>
         <div class="stat-card sc-green" style="padding:14px"><div class="stat-label">Sell Price</div><div class="stat-value" style="font-size:1rem">${fmt(p.sell)}</div></div>
-        <div class="stat-card sc-warn" style="padding:14px"><div class="stat-label">Margin</div><div class="stat-value" style="font-size:1rem">${p.margin.toFixed(1)}%</div></div>
+        <div class="stat-card sc-purple" style="padding:14px"><div class="stat-label">Margin</div><div class="stat-value" style="font-size:1rem">${p.margin.toFixed(1)}%</div></div>
       </div>
+      <div style="font-size:.72rem;color:var(--text3);text-align:right">Landed Cost (Buy + Landing): <strong style="color:var(--text)">${fmt(landedCost(p))}</strong></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div class="stat-card sc-blue" style="padding:14px"><div class="stat-label">In Stock</div><div class="stat-value">${p.qty}</div></div>
         <div class="stat-card sc-purple" style="padding:14px"><div class="stat-label">Total Sold</div><div class="stat-value">${p.sold}</div></div>
@@ -6972,7 +6988,7 @@ function saveEditStock() {
 // FEATURE: STOCK VALUE CARD on Dashboard
 // ══════════════════════════════════════════
 function calcStockValue() {
-  return db.products.reduce((a,p)=> a + (p.buy * p.qty), 0);
+  return db.products.reduce((a,p)=> a + (landedCost(p) * p.qty), 0);
 }
 function calcStockSellValue() {
   return db.products.reduce((a,p)=> a + (p.sell * p.qty), 0);
@@ -7054,7 +7070,7 @@ function renderProfitReport() {
           const prod = db.products.find(x=>x.id===it.productId);
           if(!prod) return;
           const rev  = it.sellPrice * it.qty;
-          const cost = prod.buy * it.qty;
+          const cost = landedCost(prod) * it.qty;
           const prof = rev - cost;
           totalRevenue += rev; totalCost += cost; totalProfit += prof; totalQty += it.qty;
           if(!custData[sh.id]) custData[sh.id]={name:sh.name,revenue:0,cost:0,profit:0,qty:0,products:{},dates:new Set()};
@@ -7165,7 +7181,7 @@ function renderProfitReport() {
         if(!comp) return;
         if(q && !comp.name.toLowerCase().includes(q)) return;
         const rev  = it.sellPrice * it.qty;
-        const cost = prod.buy * it.qty;
+        const cost = landedCost(prod) * it.qty;
         const prof = rev - cost;
         totalRevenue += rev; totalCost += cost; totalProfit += prof; totalQty += it.qty;
         const cd = compData[comp.id];
@@ -7254,7 +7270,7 @@ function exportProfitCSV(){
           if(!ps[it.name]) ps[it.name]={qty:0,rev:0,cost:0};
           ps[it.name].qty+=it.qty;
           ps[it.name].rev+=it.sellPrice*it.qty;
-          ps[it.name].cost+=prod.buy*it.qty;
+          ps[it.name].cost+=landedCost(prod)*it.qty;
         });
       });
       Object.entries(ps).forEach(([name,d])=>{
@@ -7276,7 +7292,7 @@ function exportProfitCSV(){
           if(!ps[it.name]) ps[it.name]={qty:0,rev:0,cost:0};
           ps[it.name].qty+=it.qty;
           ps[it.name].rev+=it.sellPrice*it.qty;
-          ps[it.name].cost+=prod.buy*it.qty;
+          ps[it.name].cost+=landedCost(prod)*it.qty;
         });
       }));
       Object.entries(ps).forEach(([name,d])=>{
@@ -8021,8 +8037,8 @@ function renderDashStats(){
     <div class="stat-card sc-purple" style="cursor:pointer" onclick="showPage('stock')"><span class="stat-icon">📦</span><div class="stat-label">In Stock</div><div class="stat-value">${totStock}</div><div class="stat-sub">${totSold} sold · ${lowCount>0?`<span style="color:var(--warn)">${lowCount} low ⚠️</span>`:'all good ✓'}</div></div>
     <div class="stat-card sc-green"><span class="stat-icon">💰</span><div class="stat-label">Revenue Collected</div><div class="stat-value">${fmt(totRev)}</div><div class="stat-sub">${fmt(totBilled)} billed</div></div>
     <div class="stat-card sc-red"><span class="stat-icon">⚠️</span><div class="stat-label">Customer Due</div><div class="stat-value">${fmt(totDue)}</div><div class="stat-sub">${totShops} shops</div></div>
-    <div class="stat-card sc-cyan" style="grid-column:span 2"><span class="stat-icon">🏷️</span><div class="stat-label">Stock Value (at Buy Price)</div><div class="stat-value">${fmt(stockBuyVal)}</div><div class="stat-sub">Sell value: ${fmt(stockSellVal)} · Potential profit: <span style="color:var(--green)">${fmt(potentialProfit)}</span></div></div>
-    <div class="stat-card sc-warn" style="grid-column:span 2;cursor:pointer" onclick="showPage('stock');setTimeout(()=>{switchStockTab('profitreport')},100)"><span class="stat-icon">📈</span><div class="stat-label">Total Profit Earned (all time)</div><div class="stat-value">${fmt(db.shops.reduce((a,sh)=>a+sh.sessions.reduce((b,s)=>b+s.items.reduce((c,it)=>{const p=db.products.find(x=>x.id===it.productId);return c+(p?(it.sellPrice-p.buy)*it.qty:0);},0),0),0))}</div><div class="stat-sub">Click to view Profit Report →</div></div>
+    <div class="stat-card sc-cyan" style="grid-column:span 2"><span class="stat-icon">🏷️</span><div class="stat-label">Stock Value (Landed Cost)</div><div class="stat-value">${fmt(stockBuyVal)}</div><div class="stat-sub">Sell value: ${fmt(stockSellVal)} · Potential profit: <span style="color:var(--green)">${fmt(potentialProfit)}</span></div></div>
+    <div class="stat-card sc-warn" style="grid-column:span 2;cursor:pointer" onclick="showPage('stock');setTimeout(()=>{switchStockTab('profitreport')},100)"><span class="stat-icon">📈</span><div class="stat-label">Total Profit Earned (all time)</div><div class="stat-value">${fmt(db.shops.reduce((a,sh)=>a+sh.sessions.reduce((b,s)=>b+s.items.reduce((c,it)=>{const p=db.products.find(x=>x.id===it.productId);return c+(p?(it.sellPrice-landedCost(p))*it.qty:0);},0),0),0))}</div><div class="stat-sub">Click to view Profit Report →</div></div>
     <div class="stat-card ${urgentPO>0?'sc-red':'sc-blue'}" style="grid-column:span 2;cursor:pointer" onclick="showPage('preorder');setTimeout(()=>switchPoTab('list'),80)"><span class="stat-icon">📋</span><div class="stat-label">Pending Pre-Orders</div><div class="stat-value">${pendingPO}</div><div class="stat-sub">${urgentPO>0?`<span style="color:var(--red)">${urgentPO} urgent 🔴</span>`:'Click to view all →'}</div></div>
   `;
 }
@@ -9003,7 +9019,7 @@ function renderAnalyticsKpis() {
   const totalRevenue = allSessions.reduce((a, s) => a + (s.newBillTotal || s.total || 0), 0);
   const totalCost = allSessions.flatMap(s => s.items || []).reduce((a, it) => {
     const p = db.products.find(x => x.id === it.productId);
-    return a + (p ? p.buy * it.qty : 0);
+    return a + (p ? landedCost(p) * it.qty : 0);
   }, 0);
   const totalProfit = totalRevenue - totalCost;
   const totalDue = db.shops.map(sh => {
@@ -9093,7 +9109,7 @@ function renderPL() {
   const revenue = sessions.reduce((a, s) => a + (s.newBillTotal || s.total || 0), 0);
   const costOfGoods = sessions.flatMap(s => s.items || []).reduce((a, it) => {
     const p = db.products.find(x => x.id === it.productId);
-    return a + (p ? p.buy * it.qty : 0);
+    return a + (p ? landedCost(p) * it.qty : 0);
   }, 0);
   const grossProfit = revenue - costOfGoods;
   const legacyExpenses = (db.expenses || []).filter(e => filterDate(e.date)).reduce((a, e) => a + e.amount, 0);
