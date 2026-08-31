@@ -1308,6 +1308,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <span style="color:var(--text3)">🔍</span>
           <input type="text" placeholder="Search company or product…" id="stockSearch" oninput="filterCompanies()">
         </div>
+        <button class="btn btn-ghost" id="stockPdfAllBtn" onclick="downloadStockPDF(null)">📄 Price List PDF</button>
         <button class="btn btn-primary" id="addCompBtn" onclick="openCompModal()">＋ Add Company</button>
       </div>
     </div>
@@ -1327,6 +1328,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           <span style="color:var(--text3)">🔍</span>
           <input type="text" placeholder="Search product…" id="prodSearch" oninput="filterProds()">
         </div>
+        <button class="btn btn-ghost" id="stockPdfCompBtn" onclick="downloadStockPDF(currCompId)">📄 Price List PDF</button>
         <button class="btn btn-primary" id="addProdBtn" onclick="openProdModal()">＋ Add Product</button>
       </div>
     </div>
@@ -7732,6 +7734,203 @@ function _pdfBlobFallback(blob, filename){
     if(!win){ toast('Allow pop-ups to view/save the PDF, or try again','info'); }
   }, 250);
   setTimeout(()=>URL.revokeObjectURL(url), 60000);
+}
+
+// ══════════════════════════════════════════
+// FEATURE: STOCK PDF (Companies → Products) — name, image, sell price, stock
+// companyId = null  → report for ALL companies
+// companyId = 'xyz' → report for that single company
+// Design: dark brand header band, soft company section bars, zebra rows,
+// aspect-correct product thumbnails (no more stretched images), colored
+// stock badges, and a page-numbered footer (no date/time anywhere).
+// ══════════════════════════════════════════
+async function downloadStockPDF(companyId){
+  const JsPDF = _getJsPDF();
+  if(!JsPDF){ toast('PDF library not loaded — try again','err'); return; }
+
+  const companies = companyId ? db.companies.filter(c=>c.id===companyId) : db.companies;
+  if(!companies.length){ toast('No company found','err'); return; }
+
+  toast('Preparing PDF…','info');
+
+  // ── Preload each unique photo's natural width/height so it can be placed
+  // "contain"-fit inside its thumbnail box instead of being squashed/stretched
+  // into a fixed square (the cause of the distorted-looking images before). ──
+  const dims = {};
+  const loads = [];
+  companies.forEach(c=>{
+    db.products.filter(p=>p.cId===c.id).forEach(p=>{
+      if(p.photo && !(p.photo in dims)){
+        dims[p.photo] = null;
+        loads.push(new Promise(res=>{
+          const img = new Image();
+          img.onload  = ()=>{ dims[p.photo] = {w:img.naturalWidth||1, h:img.naturalHeight||1}; res(); };
+          img.onerror = ()=>{ dims[p.photo] = null; res(); };
+          img.src = p.photo;
+        }));
+      }
+    });
+  });
+  await Promise.all(loads);
+
+  const doc = new JsPDF({ unit:'mm', format:'a4' });
+  const pW=210, pH=297, M=14;
+  const DARK=[24,10,17], ACCENT=[219,39,119], ACCENT_LT=[246,199,220];
+  const SOFT=[253,240,247], SOFT_BORDER=[240,205,224];
+  const ZEBRA=[249,247,248];
+  const TXT=[32,28,30], GRAY=[128,124,126];
+  const GREEN=[15,120,68], RED=[188,38,38], AMBER=[176,116,10];
+
+  const boxW=24, boxH=18;                 // thumbnail box size
+  const colImgX=M+2, colNameX=M+2+boxW+7;
+  const priceColW=36;
+  const colPriceX=pW-M-priceColW-4;
+  const nameColW=colPriceX-colNameX-4;
+  const rowH=26;
+
+  let y=0, currentCompanyName='';
+
+  function fitContain(natW,natH,bw,bh){
+    const s=Math.min(bw/natW, bh/natH);
+    return { w:natW*s, h:natH*s };
+  }
+
+  function drawMainHeader(){
+    doc.setFillColor(...DARK); doc.rect(0,0,pW,30,'F');
+    doc.setFillColor(...ACCENT); doc.rect(0,30,pW,1.3,'F');
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(19); doc.setTextColor(255,255,255);
+    doc.text('PRICE LIST', M, 14.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(...ACCENT_LT);
+    doc.text(pdfSafe('Sivasakthi Marketing' + (companyId ? ' \u00B7 ' + companies[0].name : ' \u00B7 All Companies')), M, 21.5);
+
+    const scopedProducts = db.products.filter(p=>companies.some(c=>c.id===p.cId));
+    const stats = [
+      {label:'COMPANIES', val:companies.length},
+      {label:'PRODUCTS',  val:scopedProducts.length}
+    ];
+    const slotW=30;
+    stats.forEach((s,i)=>{
+      const cx = pW-M-(stats.length-1-i)*slotW;
+      doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(255,255,255);
+      doc.text(String(s.val), cx, 13, {align:'right'});
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.2); doc.setTextColor(...ACCENT_LT);
+      doc.text(s.label, cx, 18.5, {align:'right'});
+    });
+    y = 40;
+  }
+
+  function drawContinuationHeader(){
+    doc.setFillColor(...DARK); doc.rect(0,0,pW,12,'F');
+    doc.setFillColor(...ACCENT); doc.rect(0,12,pW,0.9,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255,255,255);
+    doc.text('PRICE LIST', M, 8);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...ACCENT_LT);
+    doc.text(pdfSafe((currentCompanyName||'') + ' (continued)'), pW-M, 8, {align:'right'});
+    y = 20;
+  }
+
+  function drawCompanyBar(c, ps){
+    currentCompanyName = c.name;
+    doc.setFillColor(...SOFT); doc.setDrawColor(...SOFT_BORDER); doc.setLineWidth(0.3);
+    doc.roundedRect(M, y, pW-2*M, 10, 2, 2, 'FD');
+    doc.setFillColor(...ACCENT); doc.roundedRect(M, y, 2.6, 10, 1.3, 1.3, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(...TXT);
+    doc.text(pdfSafe(c.name), M+7, y+6.8);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...GRAY);
+    doc.text(pdfSafe(`${ps.length} product${ps.length===1?'':'s'}`), pW-M-4, y+6.8, {align:'right'});
+    y += 15;
+  }
+
+  function drawTableHeadRow(){
+    doc.setFont('helvetica','bold'); doc.setFontSize(7.6); doc.setTextColor(...ACCENT);
+    doc.text('IMAGE', colImgX, y);
+    doc.text('PRODUCT', colNameX, y);
+    doc.text('SELL PRICE', colPriceX+priceColW, y, {align:'right'});
+    y += 2.5;
+    doc.setDrawColor(...ACCENT); doc.setLineWidth(0.5);
+    doc.line(M, y, pW-M, y);
+    y += 5;
+  }
+
+  function ensureSpace(need){
+    if(y+need > pH-22){
+      doc.addPage();
+      drawContinuationHeader();
+      drawTableHeadRow();
+    }
+  }
+
+  companies.forEach((c, ci)=>{
+    const ps = db.products.filter(p=>p.cId===c.id);
+    if(ci===0){ drawMainHeader(); }
+    ensureSpace(28);
+    drawCompanyBar(c, ps);
+    drawTableHeadRow();
+
+    if(!ps.length){
+      doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(...GRAY);
+      doc.text('No products for this company', colNameX, y+3);
+      y += 12;
+      return;
+    }
+
+    ps.forEach((p, pi)=>{
+      ensureSpace(rowH);
+      const rowTop = y;
+
+      // Zebra background for the row
+      if(pi%2===1){
+        doc.setFillColor(...ZEBRA);
+        doc.roundedRect(M, rowTop-5, pW-2*M, rowH-2, 1.5, 1.5, 'F');
+      }
+
+      // ── Thumbnail box, border + aspect-correct contain-fit image ──
+      const boxY = rowTop-4;
+      doc.setDrawColor(...SOFT_BORDER); doc.setLineWidth(0.25);
+      doc.roundedRect(colImgX, boxY, boxW, boxH, 1.5, 1.5, 'D');
+      const d = p.photo ? dims[p.photo] : null;
+      if(p.photo && d){
+        const fit = fitContain(d.w, d.h, boxW-2, boxH-2);
+        const ix = colImgX + (boxW-fit.w)/2;
+        const iy = boxY + (boxH-fit.h)/2;
+        try{ doc.addImage(p.photo, 'JPEG', ix, iy, fit.w, fit.h); }
+        catch(e){ /* skip broken image, border box remains */ }
+      } else {
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.4); doc.setTextColor(190,186,188);
+        doc.text('No Image', colImgX+boxW/2, boxY+boxH/2+1.3, {align:'center'});
+      }
+
+      // ── Product name ──
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.6); doc.setTextColor(...TXT);
+      const nameLines = doc.splitTextToSize(pdfSafe(p.name), nameColW);
+      doc.text(nameLines.slice(0,2), colNameX, rowTop+1.5);
+
+      // ── Sell price ──
+      doc.setFont('helvetica','bold'); doc.setFontSize(9.6); doc.setTextColor(...GREEN);
+      doc.text(pdfSafe(fmt(p.sell)), colPriceX+priceColW, rowTop+3, {align:'right'});
+
+      y += rowH;
+    });
+    y += 5;
+  });
+
+  // ── Footer on every page: page numbers only, no date/time ──
+  const totalPages = doc.getNumberOfPages();
+  for(let i=1;i<=totalPages;i++){
+    doc.setPage(i);
+    doc.setDrawColor(...SOFT_BORDER); doc.setLineWidth(0.3);
+    doc.line(M, pH-15, pW-M, pH-15);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.6); doc.setTextColor(...GRAY);
+    doc.text(pdfSafe('Sivasakthi Marketing'), M, pH-10);
+    doc.text(`Page ${i} of ${totalPages}`, pW-M, pH-10, {align:'right'});
+  }
+
+  const filename = companyId
+    ? `price-list-${(companies[0].name||'company').toLowerCase().replace(/[^a-z0-9]+/g,'-')}.pdf`
+    : 'price-list-all-companies.pdf';
+  savePdfSmart(doc, filename);
+  toast('Price list PDF ready 📄','ok');
 }
 
 function downloadRetailPDF(sh, sess){
