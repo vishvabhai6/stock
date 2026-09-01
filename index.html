@@ -7782,10 +7782,9 @@ async function downloadStockPDF(companyId){
   const GREEN=[15,120,68], RED=[188,38,38], AMBER=[176,116,10];
 
   const boxW=24, boxH=18;                 // thumbnail box size
-  const colImgX=M+2, colNameX=M+2+boxW+7;
-  const priceColW=36;
-  const colPriceX=pW-M-priceColW-4;
-  const nameColW=colPriceX-colNameX-4;
+  const colImgX=M+2, colNameX=M+2+boxW+8;
+  const nameColW=55;
+  const colPriceX=colNameX+nameColW+8;   // sits right next to the product name
   const rowH=26;
 
   let y=0, currentCompanyName='';
@@ -7846,7 +7845,7 @@ async function downloadStockPDF(companyId){
     doc.setFont('helvetica','bold'); doc.setFontSize(7.6); doc.setTextColor(...ACCENT);
     doc.text('IMAGE', colImgX, y);
     doc.text('PRODUCT', colNameX, y);
-    doc.text('SELL PRICE', colPriceX+priceColW, y, {align:'right'});
+    doc.text('SELL PRICE', colPriceX, y);
     y += 2.5;
     doc.setDrawColor(...ACCENT); doc.setLineWidth(0.5);
     doc.line(M, y, pW-M, y);
@@ -7908,7 +7907,7 @@ async function downloadStockPDF(companyId){
 
       // ── Sell price ──
       doc.setFont('helvetica','bold'); doc.setFontSize(9.6); doc.setTextColor(...GREEN);
-      doc.text(pdfSafe(fmt(p.sell)), colPriceX+priceColW, rowTop+3, {align:'right'});
+      doc.text(pdfSafe(fmt(p.sell)), colPriceX, rowTop+3);
 
       y += rowH;
     });
