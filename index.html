@@ -728,6 +728,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 .pay-hist-info{flex:1;font-size:.8rem}
 .pay-hist-info strong{display:block;color:var(--green)}
 .pay-hist-info span{color:var(--text3);font-size:.72rem}
+.pay-hist-info .pay-note{display:block;margin-top:3px;color:var(--text2,var(--text3));font-size:.74rem;font-style:italic;word-break:break-word}
 
 /* ─── DUE BADGE ─── */
 .due-badge{
@@ -1514,7 +1515,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
             </div>
             <div style="flex:1;min-width:180px">
               <div style="font-weight:700;color:var(--red);margin-bottom:4px">🔴 Damage</div>
-              <div>A <b>Damage</b> is when a product in <b>your shop stock</b> gets damaged or lost — it never reached the customer. When you report damage: the stock is <b>reduced</b>, and the damage is <b>recorded</b> for tracking. No bill is affected.</div>
+              <div>A <b>Damage</b> is when a product in <b>your shop stock</b> gets damaged or lost — it never reached the customer. When you report damage: the quantity is added to the product's <b>Damaged</b> column (stock quantity is <b>not changed</b>). If the damage is on a <b>customer's bill</b>, report it from that customer's page — the amount is <b>deducted from the bill</b> and the quantity goes to the product's <b>Damaged</b> column.</div>
             </div>
           </div>
         </div>
@@ -1562,7 +1563,7 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
           </div>
           <div style="flex:1;background:rgba(251,113,133,.07);border:1px solid rgba(251,113,133,.2);border-radius:12px;padding:10px 12px">
             <div style="font-weight:700;color:var(--red);font-size:.84rem;margin-bottom:4px">🔴 Damage</div>
-            <div style="font-size:.76rem;color:var(--text2);line-height:1.55">Your stock was damaged → stock <b>reduced</b>, bill <b>not</b> affected</div>
+            <div style="font-size:.76rem;color:var(--text2);line-height:1.55">Own stock damaged → added to <b>Damaged</b> column · Damaged on customer's bill → <b>bill reduced</b>, added to <b>Damaged</b> column</div>
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2355,26 +2356,41 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
 <div class="modal-ov" id="mDamage">
   <div class="modal wide">
     <div class="modal-title"><span>🔴 Report Damage</span><button class="modal-x" onclick="closeM('mDamage')">✕</button></div>
-    <p style="font-size:.82rem;color:var(--text3);margin-bottom:16px;line-height:1.5">Search for a damaged product and enter the damaged quantity. Stock will be reduced accordingly and the damage will be recorded.</p>
-    <div class="fg ac-wrap">
-      <label>Product Name</label>
-      <input type="text" id="dmgProdInp" placeholder="Search product…" oninput="dmgProdAC()" autocomplete="off">
-      <div class="ac-list" id="dmgProdSugg" style="display:none"></div>
-    </div>
-    <div id="dmgProdInfo" style="display:none;margin-bottom:14px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:12px;padding:13px"></div>
-    <div class="form-2col">
-      <div class="fg">
-        <label>Damaged Qty</label>
-        <input type="number" id="dmgQty" min="1" placeholder="0" step="0.001" oninput="updDmgPreview()">
+    <div id="dmgModeWrap" style="display:none;margin-bottom:14px">
+      <div id="dmgCustInfo" style="font-size:.78rem;color:var(--text3);margin-bottom:8px"></div>
+      <div class="pay-opts">
+        <button class="pay-opt on" id="dmgModeBill" onclick="setDmgMode('bill')">🧾 From customer's bills</button>
+        <button class="pay-opt" id="dmgModeStock" onclick="setDmgMode('stock')">🏬 From my stock</button>
       </div>
+    </div>
+    <p id="dmgHint" style="font-size:.82rem;color:var(--text3);margin-bottom:14px;line-height:1.5"></p>
+
+    <!-- Customer-bill mode: tick any number of products -->
+    <div id="dmgBillWrap">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Items Damaged</div>
+      <input type="text" id="dmgSearch" placeholder="🔍 Search product name…" oninput="filterDmgRows()" autocomplete="off" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:10px;padding:9px 12px;color:var(--text);font-size:.88rem;font-family:inherit;outline:none;margin-bottom:10px">
+      <div id="dmgBillRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:42vh;overflow-y:auto;padding-right:2px"></div>
+    </div>
+
+    <!-- Own-stock mode: add any number of products -->
+    <div id="dmgStockWrap" style="display:none">
+      <div class="fg ac-wrap">
+        <label>Add Product</label>
+        <input type="text" id="dmgProdInp" placeholder="Search product to add…" oninput="dmgProdAC()" autocomplete="off">
+        <div class="ac-list" id="dmgProdSugg" style="display:none"></div>
+      </div>
+      <div id="dmgStockRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:36vh;overflow-y:auto;padding-right:2px"></div>
+    </div>
+
+    <div class="form-2col">
       <div class="fg">
         <label>Date</label>
         <input type="date" id="dmgDate">
       </div>
-    </div>
-    <div class="fg">
-      <label>Note (optional)</label>
-      <input type="text" id="dmgNote" placeholder="e.g. Broken during transport…">
+      <div class="fg">
+        <label>Note (optional)</label>
+        <input type="text" id="dmgNote" placeholder="e.g. Broken during transport…">
+      </div>
     </div>
     <div id="dmgPreview" style="display:none;margin-bottom:10px;background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:12px;padding:12px;font-size:.85rem"></div>
     <div class="form-acts">
@@ -2391,7 +2407,8 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div id="mReturnInfo" style="margin-bottom:14px"></div>
     <p style="font-size:.82rem;color:var(--text3);margin-bottom:14px;line-height:1.6">Select the products being returned. The bill amount will be reduced and stock will be restored.</p>
     <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Items to Return</div>
-    <div id="returnRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <input type="text" id="retSearch" placeholder="🔍 Search product name…" oninput="filterReturnRows()" autocomplete="off" style="width:100%;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:10px;padding:9px 12px;color:var(--text);font-size:.88rem;font-family:inherit;outline:none;margin-bottom:10px">
+    <div id="returnRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:48vh;overflow-y:auto;padding-right:2px"></div>
     <div id="returnSummary" style="display:none;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:14px;margin-bottom:4px">
       <div style="font-size:.72rem;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">↩️ Return Summary</div>
       <div id="returnSummaryContent"></div>
@@ -2399,6 +2416,24 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="form-acts">
       <button class="btn btn-ghost" onclick="closeM('mReturn')">Cancel</button>
       <button class="btn btn-sm" style="background:rgba(251,191,36,.15);color:var(--warn);border:1px solid rgba(251,191,36,.35)" onclick="saveReturn()">↩️ Confirm Return</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Return Modal -->
+<div class="modal-ov" id="mEditReturn">
+  <div class="modal wide">
+    <div class="modal-title"><span>✏️ Edit Return</span><button class="modal-x" onclick="closeM('mEditReturn')">✕</button></div>
+    <div id="erInfo" style="margin-bottom:14px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 8px">
+      <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px">Returned Items</div>
+      <button class="btn btn-ghost btn-sm" onclick="erAdd()">＋ Row</button>
+    </div>
+    <div id="erRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:42vh;overflow-y:auto;padding-right:2px"></div>
+    <div id="erSummary" style="display:none;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:14px;padding:14px;margin-bottom:4px"></div>
+    <div class="form-acts">
+      <button class="btn btn-ghost" onclick="closeM('mEditReturn')">Cancel</button>
+      <button class="btn btn-sm" style="background:rgba(251,191,36,.15);color:var(--warn);border:1px solid rgba(251,191,36,.35)" onclick="saveEditReturn()">💾 Save Changes</button>
     </div>
   </div>
 </div>
@@ -2490,6 +2525,10 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
         <button class="pay-opt" onclick="selApPay(this,'GPay')">📱 GPay</button>
         <button class="pay-opt" onclick="selApPay(this,'PhonePe')">📲 PhonePe</button>
       </div>
+    </div>
+    <div class="fg">
+      <label>Notes <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">(optional)</span></label>
+      <textarea id="apNote" rows="2" maxlength="200" placeholder="e.g. Paid by owner's son, cheque no. 1234…" style="width:100%;resize:vertical"></textarea>
     </div>
     <div id="apSummary" class="sell-sum" style="display:none"></div>
     <!-- Partial pay settle option -->
@@ -4512,106 +4551,307 @@ function delProd(id){
 // ══════════════════════════════════════════
 // DAMAGE FEATURE
 // ══════════════════════════════════════════
-let _dmgProdId = '';
+let _dmgMode = 'stock', _dmgShopId = null, _dmgPool = [], _dmgStockRows = [];
+const _dmgInpCss = "width:74px;box-sizing:border-box;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:9px;padding:7px 10px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.83rem;outline:none";
+const _dmgRowCss = "background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:12px";
+const _dmgRound = n => Math.round(n*1000)/1000;
+
+// Items of ALL the customer's bills that can still be damaged (stock-linked only)
+function _dmgBuildPool(sh){
+  const L = sh.sessions[sh.sessions.length-1];
+  const pool = [];
+  [...sh.sessions].reverse().forEach(src => {
+    if(src.type==='oldbill') return;
+    _erBuildPool(sh, L, {items:[], fromSessId:src.id})
+      .filter(x => x.productId && db.products.some(p => p.id===x.productId))
+      .forEach(x => pool.push({...x, srcId:src.id, srcDate:src.date}));
+  });
+  return pool;
+}
 
 function openDamageModal(){
-  _dmgProdId = '';
-  document.getElementById('dmgProdInp').value = '';
-  document.getElementById('dmgProdSugg').style.display = 'none';
-  document.getElementById('dmgProdInfo').style.display = 'none';
-  document.getElementById('dmgQty').value = '';
+  _dmgShopId = null; _dmgPool = []; _dmgStockRows = [];
   document.getElementById('dmgDate').value = today();
   document.getElementById('dmgNote').value = '';
-  document.getElementById('dmgPreview').style.display = 'none';
+  // Opened from a customer's page → offer "from customer's bills"
+  const det = document.getElementById('sellv-detail');
+  const sh = (currShopId && det && det.offsetParent!==null) ? db.shops.find(x => x.id===currShopId) : null;
+  if(sh && sh.sessions.length){
+    const pool = _dmgBuildPool(sh);
+    if(pool.length){
+      _dmgShopId = sh.id; _dmgPool = pool;
+      document.getElementById('dmgCustInfo').innerHTML = `Customer: <strong style="color:var(--accent)">${_escR(sh.name)}</strong> · All products from all bills`;
+    }
+  }
+  document.getElementById('dmgModeWrap').style.display = _dmgShopId ? '' : 'none';
+  setDmgMode(_dmgShopId ? 'bill' : 'stock');
   openM('mDamage');
 }
 
+function setDmgMode(m){
+  _dmgMode = (m==='bill' && _dmgShopId) ? 'bill' : 'stock';
+  _dmgStockRows = [];
+  document.getElementById('dmgProdInp').value = '';
+  document.getElementById('dmgSearch').value = '';
+  document.getElementById('dmgProdSugg').style.display = 'none';
+  const bb = document.getElementById('dmgModeBill'), sb = document.getElementById('dmgModeStock');
+  if(bb) bb.classList[_dmgMode==='bill'?'add':'remove']('on');
+  if(sb) sb.classList[_dmgMode==='stock'?'add':'remove']('on');
+  document.getElementById('dmgHint').innerHTML = _dmgMode==='bill'
+    ? "Tick every product that got damaged, from any of this customer's bills, and set the quantity. The damage value is <b>deducted from the current bill</b> and the quantities are added to each product's <b>Damaged</b> column. Stock quantity is not changed."
+    : "Add one or more damaged products and enter the quantity for each. They are added to each product's <b>Damaged</b> column only — stock quantity is not changed. No bill is affected.";
+  document.getElementById('dmgBillWrap').style.display = _dmgMode==='bill' ? '' : 'none';
+  document.getElementById('dmgStockWrap').style.display = _dmgMode==='bill' ? 'none' : '';
+  if(_dmgMode==='bill') renderDmgBillRows(); else renderDmgStockRows();
+  updDmgPreview();
+}
+
+/* ───────── Customer-bill mode ───────── */
+function renderDmgBillRows(){
+  const groups = [];
+  _dmgPool.forEach((x,i) => {
+    let g = groups.find(g => g.id===x.srcId);
+    if(!g){ g = {id:x.srcId, date:x.srcDate, rows:[]}; groups.push(g); }
+    g.rows.push({x,i});
+  });
+  document.getElementById('dmgBillRows').innerHTML = groups.map(g => `
+    <div class="dmg-group">
+      <div style="font-size:.74rem;font-weight:700;color:var(--red);margin:4px 2px 6px">🧾 Bill dated ${fmtD(g.date)}</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+      ${g.rows.map(({x,i}) => `
+        <div class="dmg-row" data-name="${_escR(x.name).toLowerCase()}" style="${_dmgRowCss};display:grid;grid-template-columns:1fr auto;gap:8px 10px;align-items:center">
+          <div>
+            <div style="font-size:.85rem;font-weight:600">${_escR(x.name)}</div>
+            <div style="font-size:.72rem;color:var(--text3)">On bill: <strong style="color:var(--red)">${x.avail}</strong> · billed at ${fmt(x.sellPrice)}</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--text3);cursor:pointer">
+            <input type="checkbox" id="dmgck-${i}" onchange="updDmgPreview()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--red)"> Damaged
+          </label>
+          <div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:.74rem;color:var(--text3)">
+            <span>Qty</span>
+            <input type="number" id="dmgqty-${i}" value="${Math.min(1,x.avail)}" min="0" max="${x.avail}" step="0.001" style="${_dmgInpCss}" oninput="dmgBillEdit(${i},true)">
+            <span>Price ₹</span>
+            <input type="number" id="dmgpr-${i}" value="${x.sellPrice}" min="0" step="0.01" style="${_dmgInpCss}" oninput="dmgBillEdit(${i},false)">
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`).join('') + '<div id="dmgNoMatch" style="display:none;text-align:center;color:var(--text3);font-size:.82rem;padding:14px">No matching products</div>';
+}
+
+function dmgBillEdit(i, isQty){
+  const x = _dmgPool[i];
+  if(isQty){
+    const el = document.getElementById('dmgqty-'+i);
+    if((parseFloat(el.value)||0) > x.avail) el.value = x.avail;
+  }
+  const ck = document.getElementById('dmgck-'+i);
+  if(ck && !ck.checked) ck.checked = true;   // editing a row means it is damaged
+  updDmgPreview();
+}
+
+function filterDmgRows(){
+  const q = (document.getElementById('dmgSearch').value||'').trim().toLowerCase();
+  let any = false;
+  document.querySelectorAll('#dmgBillRows .dmg-group').forEach(g => {
+    let vis = 0;
+    g.querySelectorAll('.dmg-row').forEach(r => {
+      const show = !q || r.dataset.name.includes(q);
+      r.style.display = show ? '' : 'none';
+      if(show) vis++;
+    });
+    g.style.display = vis ? '' : 'none';
+    if(vis) any = true;
+  });
+  const nm = document.getElementById('dmgNoMatch'); if(nm) nm.style.display = any ? 'none' : '';
+}
+
+// Ticked rows → [{pl, p, qty, price}]
+function _dmgCollectBill(){
+  const out = [];
+  _dmgPool.forEach((pl,i) => {
+    const ck = document.getElementById('dmgck-'+i);
+    if(!ck || !ck.checked) return;
+    const p = db.products.find(x => x.id===pl.productId); if(!p) return;
+    const qty = parseFloat(document.getElementById('dmgqty-'+i).value)||0;
+    const price = parseFloat(document.getElementById('dmgpr-'+i).value);
+    out.push({pl, p, qty, price});
+  });
+  return out;
+}
+
+/* ───────── Own-stock mode ───────── */
 function dmgProdAC(){
   const q = document.getElementById('dmgProdInp').value.toLowerCase().trim();
   const su = document.getElementById('dmgProdSugg');
-  // Clear selection when user types again
-  _dmgProdId = '';
-  document.getElementById('dmgProdInfo').style.display = 'none';
-  document.getElementById('dmgPreview').style.display = 'none';
   if(!q){ su.style.display='none'; return; }
   const matches = db.products.filter(p => p.name.toLowerCase().includes(q));
   if(!matches.length){ su.style.display='none'; return; }
   su.style.display = '';
   su.innerHTML = matches.map(p => {
     const c = db.companies.find(x => x.id === p.cId);
-    return `<div class="ac-item" onclick="selDmgProd('${p.id}')">
-      <div><span style="font-weight:600">${p.name}</span><span class="ac-sub"> · ${c ? c.name : ''} · Stock: ${p.qty}</span></div>
+    const added = _dmgStockRows.some(r => r.pid===p.id);
+    return `<div class="ac-item" onclick="addDmgStockProd('${p.id}')">
+      <div><span style="font-weight:600">${_escR(p.name)}</span><span class="ac-sub"> · ${c ? _escR(c.name) : ''} · Stock: ${p.qty}${added?' · added':''}</span></div>
       <span class="ac-price" style="color:${p.qty<=5?'var(--red)':'var(--accent)'}">${p.qty} left</span>
     </div>`;
   }).join('');
 }
 
-function selDmgProd(id){
-  const p = db.products.find(x => x.id === id);
-  const c = db.companies.find(x => x.id === p.cId);
-  _dmgProdId = id;
-  document.getElementById('dmgProdInp').value = p.name;
+function addDmgStockProd(id){
+  const p = db.products.find(x => x.id===id); if(!p) return;
   document.getElementById('dmgProdSugg').style.display = 'none';
-  const info = document.getElementById('dmgProdInfo');
-  info.style.display = '';
-  info.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-      <div>
-        <div style="font-size:.63rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Product</div>
-        <div style="font-weight:700;font-size:.88rem">${p.name}</div>
-        <div style="font-size:.72rem;color:var(--text3)">${c ? c.name : ''}</div>
-      </div>
-      <div>
-        <div style="font-size:.63rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Current Stock</div>
-        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.1rem;color:${p.qty<=5?'var(--red)':'var(--accent)'}">${p.qty}</div>
-      </div>
-      <div>
-        <div style="font-size:.63rem;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px">Already Damaged</div>
-        <div style="font-family:'Clash Display',sans-serif;font-weight:700;font-size:1.1rem;color:var(--red)">${p.damaged||0}</div>
-      </div>
-    </div>`;
+  document.getElementById('dmgProdInp').value = '';
+  if(_dmgStockRows.some(r => r.pid===id)){ toast(`"${p.name}" is already in the list`,'err'); return; }
+  _dmgStockRows.push({pid:id, qty:1, price:p.sell});
+  renderDmgStockRows(); updDmgPreview();
+}
+
+function removeDmgStockRow(i){
+  _dmgStockRows.splice(i,1);
+  renderDmgStockRows(); updDmgPreview();
+}
+
+function dmgStockEdit(i, field, el){
+  const r = _dmgStockRows[i]; if(!r) return;
+  r[field] = parseFloat(el.value);
   updDmgPreview();
 }
 
-function updDmgPreview(){
-  if(!_dmgProdId){ document.getElementById('dmgPreview').style.display='none'; return; }
-  const p = db.products.find(x => x.id === _dmgProdId);
-  const qty = parseFloat(document.getElementById('dmgQty').value)||0;
-  const prev = document.getElementById('dmgPreview');
-  if(qty <= 0){ prev.style.display='none'; return; }
-  const newStock = p.qty - qty;
-  prev.style.display = '';
-  prev.innerHTML = `
-    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-      <span style="font-size:.82rem">📦 Current Stock: <strong>${p.qty}</strong></span>
-      <span style="font-size:.82rem;color:var(--red)">🔴 Damage: <strong>−${qty}</strong></span>
-      <span style="font-size:.82rem;color:${newStock<0?'var(--red)':'var(--green)'}">→ New Stock: <strong>${newStock}</strong></span>
-    </div>
-    ${newStock < 0 ? `<div style="margin-top:6px;font-size:.78rem;color:var(--red);font-weight:600">⚠️ Damage qty exceeds current stock!</div>` : ''}`;
+function renderDmgStockRows(){
+  const el = document.getElementById('dmgStockRows');
+  if(!_dmgStockRows.length){
+    el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:.8rem;padding:14px">Search above and tap a product to add it. You can add as many as you need.</div>';
+    return;
+  }
+  el.innerHTML = _dmgStockRows.map((r,i) => {
+    const p = db.products.find(x => x.id===r.pid); if(!p) return '';
+    return `<div style="${_dmgRowCss};display:grid;grid-template-columns:1fr auto;gap:8px 10px;align-items:center">
+      <div>
+        <div style="font-size:.85rem;font-weight:600">${_escR(p.name)}</div>
+        <div style="font-size:.72rem;color:var(--text3)">Stock: <strong>${p.qty}</strong> · Already damaged: <strong style="color:var(--red)">${p.damaged||0}</strong></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="removeDmgStockRow(${i})" title="Remove">✕</button>
+      <div style="grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:.74rem;color:var(--text3)">
+        <span>Qty</span>
+        <input type="number" value="${r.qty}" min="0" step="0.001" style="${_dmgInpCss}" oninput="dmgStockEdit(${i},'qty',this)">
+        <span>Price ₹</span>
+        <input type="number" value="${isNaN(r.price)?'':r.price}" min="0" step="0.01" style="${_dmgInpCss}" oninput="dmgStockEdit(${i},'price',this)">
+      </div>
+    </div>`;
+  }).join('');
 }
 
+/* ───────── Preview ───────── */
+function updDmgPreview(){
+  const prev = document.getElementById('dmgPreview');
+  if(_dmgMode==='bill'){
+    const rows = _dmgCollectBill();
+    if(!rows.length){ prev.style.display='none'; return; }
+    const sh = db.shops.find(x => x.id===_dmgShopId);
+    const L = sh.sessions[sh.sessions.length-1];
+    const amt = rows.reduce((a,r) => a + (r.qty||0)*(r.price||0), 0);
+    const newBal = Math.max(0, L.balance-amt), excess = Math.max(0, amt-L.balance);
+    const over = rows.filter(r => r.qty > r.pl.avail+1e-9);
+    prev.style.display = '';
+    prev.innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>🔴 Products damaged</span><strong style="color:var(--red)">${rows.length}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>🧾 Deducted from current bill</span><strong style="color:var(--warn)">−${fmt(amt)}</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Customer balance</span><strong>${fmt(L.balance)} → <span style="color:${newBal>0?'var(--red)':'var(--green)'}">${newBal>0?fmt(newBal):'₹0.00 ✓'}</span></strong></div>
+      <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text3)">📦 Good stock</span><strong>unchanged</strong></div>
+      ${excess>0?`<div style="margin-top:6px;font-size:.76rem;color:var(--warn)">⚠️ ${fmt(excess)} is more than the balance due — customer has paid extra (refund / adjust separately).</div>`:''}
+      ${over.map(r=>`<div style="margin-top:6px;font-size:.78rem;color:var(--red);font-weight:600">⚠️ Only ${r.pl.avail} of ${_escR(r.pl.name)} is on that bill</div>`).join('')}`;
+    return;
+  }
+  if(!_dmgStockRows.length){ prev.style.display='none'; return; }
+  const valid = _dmgStockRows.filter(r => r.qty>0);
+  if(!valid.length){ prev.style.display='none'; return; }
+  const totQty = valid.reduce((a,r) => a+r.qty, 0);
+  const totVal = valid.reduce((a,r) => a+r.qty*(r.price||0), 0);
+  prev.style.display = '';
+  prev.innerHTML = `
+    <div style="display:flex;justify-content:space-between;padding:3px 0"><span>🔴 Products</span><strong style="color:var(--red)">${valid.length}</strong></div>
+    <div style="display:flex;justify-content:space-between;padding:3px 0"><span>Total damaged qty</span><strong style="color:var(--red)">${_dmgRound(totQty)}</strong></div>
+    ${totVal>0?`<div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text3)">Value</span><strong>${fmt(totVal)}</strong></div>`:''}
+    <div style="display:flex;justify-content:space-between;padding:3px 0"><span style="color:var(--text3)">📦 Stock quantity</span><strong>unchanged</strong></div>`;
+}
+
+/* ───────── Save ───────── */
 function saveDamage(){
-  if(!_dmgProdId){ toast('Select a product first','err'); return; }
-  const p = db.products.find(x => x.id === _dmgProdId);
-  const qty = parseFloat(document.getElementById('dmgQty').value)||0;
   const date = document.getElementById('dmgDate').value || today();
   const note = document.getElementById('dmgNote').value.trim();
-  if(qty <= 0){ toast('Enter a valid damaged quantity','err'); return; }
-  if(qty > p.qty){ toast(`Only ${p.qty} units in stock — cannot damage ${qty}`,'err'); return; }
-  // Deduct from stock
-  p.qty -= qty;
-  // Track damage total
-  if(!p.damaged) p.damaged = 0;
-  p.damaged += qty;
-  // Append to damage log
-  if(!p.damageLog) p.damageLog = [];
-  p.damageLog.push({ id: uid(), date, qty, note: note || '' });
-  toast(`🔴 ${qty} unit(s) of "${p.name}" marked as damaged · Stock now: ${p.qty}`, 'err', 'dmg');
+  if(_dmgMode==='bill'){ _saveBillDamage(date, note); return; }
+
+  if(!_dmgStockRows.length){ toast('Add at least one product','err'); return; }
+  const items = [];
+  for(const r of _dmgStockRows){
+    const p = db.products.find(x => x.id===r.pid); if(!p) continue;
+    if(!(r.qty>0)){ toast(`Enter a valid damaged quantity for ${p.name}`,'err'); return; }
+    if(isNaN(r.price) || r.price<0){ toast(`Enter a valid price for ${p.name}`,'err'); return; }
+    items.push({p, qty:r.qty, price:r.price});
+  }
+  if(!items.length) return;
+  // Stock quantity is NOT reduced — only the Damaged column increases
+  items.forEach(({p,qty,price}) => {
+    p.damaged = (p.damaged||0) + qty;
+    if(!p.damageLog) p.damageLog = [];
+    p.damageLog.push({ id: uid(), date, qty, price, note });
+  });
+  toast(items.length===1
+    ? `🔴 ${items[0].qty} unit(s) of "${items[0].p.name}" added to Damaged column · Stock unchanged`
+    : `🔴 ${items.length} products added to Damaged column · Stock unchanged`, 'err', 'dmg');
   closeM('mDamage');
-  // Refresh views
   if(currCompId) renderProds();
   renderComps();
   if(document.getElementById('page-dashboard').classList.contains('active')) renderDash();
+  if(window.saveToFirestore) saveToFirestore();
+}
+
+// Damage found on the customer's bills: reduce the current bill, add to each product's Damaged column
+function _saveBillDamage(date, note){
+  const sh = db.shops.find(x => x.id===_dmgShopId); if(!sh) return;
+  const rows = _dmgCollectBill();
+  if(!rows.length){ toast('Tick at least one damaged product','err'); return; }
+  for(const r of rows){
+    if(!(r.qty>0)){ toast(`Enter a valid damaged quantity for ${r.pl.name}`,'err'); return; }
+    if(r.qty > r.pl.avail+1e-9){ toast(`Only ${r.pl.avail} of ${r.pl.name} on that bill can be damaged`,'err'); return; }
+    if(isNaN(r.price) || r.price<0){ toast(`Enter a valid price for ${r.pl.name}`,'err'); return; }
+  }
+  const L = sh.sessions[sh.sessions.length-1];
+  // One damage entry per source bill, holding all its products
+  const bySrc = {};
+  rows.forEach(r => (bySrc[r.pl.srcId] = bySrc[r.pl.srcId] || []).push(r));
+  let total = 0;
+  if(!L.returns) L.returns = [];
+  Object.keys(bySrc).forEach(srcId => {
+    const list = bySrc[srcId];
+    const src = sh.sessions.find(x => x.id===srcId) || L;
+    const dmgId = uid();
+    const amt = list.reduce((a,r) => a + r.price*r.qty, 0);
+    total += amt;
+    // Logged like a return (so bill, history and invoices pick it up) but flagged as damage
+    L.returns.push({date, items:list.map(r => ({productId:r.pl.productId,name:r.pl.name,sellPrice:r.price,qty:r.qty})), amount:amt, damage:true, dmgId, note, fromSessId:src.id, fromDate:src.date});
+    // Stock: good stock unchanged, units move to the Damaged column
+    list.forEach(r => {
+      r.p.damaged = (r.p.damaged||0) + r.qty;
+      r.p.sold = Math.max(0, (r.p.sold||0) - r.qty);
+      if(!r.p.damageLog) r.p.damageLog = [];
+      r.p.damageLog.push({id:uid(), dmgId, date, qty:r.qty, price:r.price, note, shopId:sh.id, shopName:sh.name});
+    });
+  });
+  // Reduce the bill
+  const base = L.newBillTotal!==undefined ? L.newBillTotal : (L.prevBalance>0 ? L.total-L.prevBalance : L.total);
+  L.newBillTotal = Math.max(0, base-total);
+  L.total = L.newBillTotal + (L.prevBalance||0);
+  L.balance = Math.max(0, L.total - L.paid);
+  logActivity(`🔴 Damage on ${sh.name}'s bill — ${rows.map(r => r.pl.name+' × '+r.qty).join(', ')} (−${fmt(total)})`);
+  const excess = Math.max(0, L.paid - L.total);
+  toast(`🔴 ${rows.length} product${rows.length>1?'s':''} damaged · ${fmt(total)} deducted from bill${excess>0?' · customer paid '+fmt(excess)+' extra':''}`, 'err', 'dmg');
+  closeM('mDamage');
+  openShopDetail(sh.id);
+  renderShops();
+  renderDashStats();
+  if(currCompId) renderProds();
+  renderComps();
   if(window.saveToFirestore) saveToFirestore();
 }
 
@@ -4639,8 +4879,8 @@ function viewDamageLog(prodId){
           <div style="display:flex;align-items:center;gap:10px;background:rgba(251,113,133,.07);border:1px solid rgba(251,113,133,.2);border-radius:10px;padding:10px 13px;margin-bottom:7px">
             <span style="font-size:1.1rem">🔴</span>
             <div style="flex:1">
-              <div style="font-weight:700;font-size:.88rem;color:var(--red)">−${entry.qty} units</div>
-              <div style="font-size:.74rem;color:var(--text3);margin-top:2px">📅 ${fmtD(entry.date)}${entry.note ? ' · ' + entry.note : ''}</div>
+              <div style="font-weight:700;font-size:.88rem;color:var(--red)">−${entry.qty} units${entry.price>0?' <span style="font-weight:500;color:var(--text3)">× '+fmt(entry.price)+'</span>':''}</div>
+              <div style="font-size:.74rem;color:var(--text3);margin-top:2px">📅 ${fmtD(entry.date)}${entry.shopName ? ' · 🧾 ' + _escR(entry.shopName) + "'s bill" : ''}${entry.note ? ' · ' + _escR(entry.note) : ''}</div>
             </div>
           </div>`).join('') : '<div style="text-align:center;padding:18px;font-size:.8rem;color:var(--text3)">No damage records yet.</div>'}
       </div>
@@ -5420,6 +5660,7 @@ function openAddPay(shopId,sessId){
   document.querySelectorAll('#apPayOpts .pay-opt').forEach((b,i)=>b.classList[i===0?'add':'remove']('on'));
   document.getElementById('apDate').value=today();
   document.getElementById('apAmt').value='';
+  if(document.getElementById('apNote')) document.getElementById('apNote').value='';
   document.getElementById('apSummary').style.display='none';
   if(document.getElementById('apSettleChk')) document.getElementById('apSettleChk').checked=false;
   if(document.getElementById('apSettleWrap')) document.getElementById('apSettleWrap').style.display='none';
@@ -5471,7 +5712,10 @@ function saveAddPay(){
   if(amt>sess.balance){toast(`Amount exceeds balance of ${fmt(sess.balance)}`,'err');return;}
   const settle=document.getElementById('apSettleChk')&&document.getElementById('apSettleChk').checked;
   const writeOff=settle?Math.max(0,sess.balance-amt):0;
-  sess.payments.push({id:uid(),date,amount:amt,method:apPayMethod});
+  const apNoteVal=(document.getElementById('apNote')?document.getElementById('apNote').value:'').trim();
+  const newPay={id:uid(),date,amount:amt,method:apPayMethod};
+  if(apNoteVal) newPay.note=apNoteVal;
+  sess.payments.push(newPay);
   sess.paid+=amt;
   if(settle&&writeOff>0){
     // Write off the remaining small balance — mark as settled
@@ -5499,58 +5743,88 @@ function saveAddPay(){
 // ══════════════════════════════════════════
 // PRODUCT RETURN
 // ══════════════════════════════════════════
-let _retShopId=null, _retSessId=null;
+let _retShopId=null, _retRows=[];
+const _escR = t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function _retKey(it){ return it.productId||('n'+it.name); }
+function _retAlready(sess,k){
+  const sh=db.shops.find(x=>x.id===_retShopId);
+  let tot=0;
+  (sh?sh.sessions:[sess]).forEach(s2=>{
+    (s2.returns||[]).forEach(r=>{
+      const mine = s2===sess ? !r.fromSessId : r.fromSessId===sess.id;
+      if(mine) tot+=r.items.filter(x=>_retKey(x)===k).reduce((b,x)=>b+x.qty,0);
+    });
+  });
+  return tot;
+}
 
 function openReturnModal(shopId){
   const sh = db.shops.find(x=>x.id===shopId);
   if(!sh||!sh.sessions.length){toast('No sessions to return from','err');return;}
-  // Find the latest normal sale session (skip old-bill sessions)
-  const lastSell = [...sh.sessions].reverse().find(s=>s.type!=='oldbill' && s.items && s.items.length);
-  if(!lastSell){toast('No saleable session found to return from','err');return;}
-  _retShopId=shopId; _retSessId=lastSell.id;
+  _retShopId=shopId; _retRows=[];
 
-  // Work out already-returned qty per product for this session
-  const alreadyReturned = {};
-  (lastSell.returns||[]).forEach(r=>{
-    r.items.forEach(it=>{
-      const k = it.productId||('n'+it.name);
-      alreadyReturned[k] = (alreadyReturned[k]||0) + it.qty;
+  // Every normal bill (newest first) with items that still have returnable qty
+  const groups=[];
+  [...sh.sessions].reverse().forEach(sess=>{
+    if(sess.type==='oldbill' || !sess.items || !sess.items.length) return;
+    const rows=[];
+    sess.items.forEach(it=>{
+      const k=_retKey(it);
+      const maxQty = it.qty - _retAlready(sess,k);
+      if(maxQty>0){
+        const idx=_retRows.length;
+        _retRows.push({sessId:sess.id, k, maxQty});
+        rows.push({idx,it,maxQty});
+      }
     });
+    if(rows.length) groups.push({sess,rows});
   });
+  if(!_retRows.length){toast('No returnable items found in any bill','err');return;}
 
-  // Info banner
   document.getElementById('mReturnInfo').innerHTML=`
     <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:12px">
-      <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Editing bill dated <strong style="color:var(--warn)">${fmtD(lastSell.date)}</strong> — returned items will be removed from the bill</div>
-      <div style="font-size:.82rem;font-weight:700">Customer: <span style="color:var(--accent)">${sh.name}</span></div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Showing products from <strong style="color:var(--warn)">all previous bills</strong> — the return value is deducted from the <strong style="color:var(--warn)">current (latest) bill</strong></div>
+      <div style="font-size:.82rem;font-weight:700">Customer: <span style="color:var(--accent)">${_escR(sh.name)}</span></div>
     </div>`;
 
-  // Build return rows — only show items that still have returnable qty
-  const returnableItems = lastSell.items.filter(it=>{
-    const k = it.productId||('n'+it.name);
-    return it.qty - (alreadyReturned[k]||0) > 0;
-  });
-  if(!returnableItems.length){toast('All items from this bill have already been returned','err');return;}
-
-  document.getElementById('returnRows').innerHTML = returnableItems.map(it=>{
-    const k = it.productId||('n'+it.name);
-    const maxQty = it.qty - (alreadyReturned[k]||0);
-    return `
-    <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:12px;display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center">
-      <div>
-        <div style="font-size:.85rem;font-weight:600">${it.name}</div>
-        <div style="font-size:.72rem;color:var(--text3)">Billed: ${it.qty} · Returnable: <strong style="color:var(--warn)">${maxQty}</strong> · ${fmt(it.sellPrice)} each</div>
+  document.getElementById('returnRows').innerHTML = groups.map(g=>`
+    <div class="ret-group">
+      <div style="font-size:.74rem;font-weight:700;color:var(--warn);margin:4px 2px 6px">🧾 Bill dated ${fmtD(g.sess.date)}</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+      ${g.rows.map(({idx,it,maxQty})=>`
+        <div class="ret-row" data-name="${_escR(it.name).toLowerCase()}" style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:12px;display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center">
+          <div>
+            <div style="font-size:.85rem;font-weight:600">${_escR(it.name)}</div>
+            <div style="font-size:.72rem;color:var(--text3)">Billed: ${it.qty} · Returnable: <strong style="color:var(--warn)">${maxQty}</strong> · ${fmt(it.sellPrice)} each</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--text3);cursor:pointer">
+            <input type="checkbox" id="retck-${idx}" onchange="updReturnSummary()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--warn)"> Return
+          </label>
+          <input type="number" id="retqty-${idx}" value="${maxQty}" min="1" max="${maxQty}" step="0.001"
+            style="width:70px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:9px;padding:7px 10px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.83rem;outline:none"
+            oninput="clampRetQty(this,${maxQty});updReturnSummary()">
+        </div>`).join('')}
       </div>
-      <label style="display:flex;align-items:center;gap:7px;font-size:.8rem;color:var(--text3);cursor:pointer">
-        <input type="checkbox" id="retck-${k}" onchange="updReturnSummary()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--warn)"> Return
-      </label>
-      <input type="number" id="retqty-${k}" value="${maxQty}" min="1" max="${maxQty}" step="0.001"
-        style="width:70px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:9px;padding:7px 10px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.83rem;outline:none"
-        oninput="clampRetQty(this,${maxQty});updReturnSummary()">
-    </div>`;
-  }).join('');
+    </div>`).join('') + '<div id="retNoMatch" style="display:none;text-align:center;color:var(--text3);font-size:.82rem;padding:14px">No matching products</div>';
+  document.getElementById('retSearch').value='';
   document.getElementById('returnSummary').style.display='none';
   openM('mReturn');
+}
+
+function filterReturnRows(){
+  const q=(document.getElementById('retSearch').value||'').trim().toLowerCase();
+  let any=false;
+  document.querySelectorAll('#returnRows .ret-group').forEach(g=>{
+    let vis=0;
+    g.querySelectorAll('.ret-row').forEach(r=>{
+      const show=!q||r.dataset.name.includes(q);
+      r.style.display=show?'':'none';
+      if(show) vis++;
+    });
+    g.style.display=vis?'':'none';
+    if(vis) any=true;
+  });
+  const nm=document.getElementById('retNoMatch'); if(nm) nm.style.display=any?'none':'';
 }
 
 function clampRetQty(el, max){
@@ -5560,96 +5834,88 @@ function clampRetQty(el, max){
   if(v < 1)  { el.value = 1;  }
 }
 
+// Collect currently ticked rows → {sessId: [{productId,name,sellPrice,qty,k}]}
+function _collectReturns(sh){
+  const bySess={}; let count=0;
+  _retRows.forEach((r,i)=>{
+    const ck=document.getElementById('retck-'+i);
+    if(!ck||!ck.checked) return;
+    const sess=sh.sessions.find(s=>s.id===r.sessId); if(!sess) return;
+    const it=sess.items.find(x=>_retKey(x)===r.k); if(!it) return;
+    const maxQty=it.qty-_retAlready(sess,r.k);
+    if(maxQty<=0) return;
+    const qty=Math.min(Math.max(parseFloat(document.getElementById('retqty-'+i).value)||1,1),maxQty);
+    (bySess[r.sessId]=bySess[r.sessId]||[]).push({productId:it.productId,name:it.name,sellPrice:it.sellPrice,qty,k:r.k});
+    count++;
+  });
+  return {bySess,count};
+}
+
 function updReturnSummary(){
   const sh = db.shops.find(x=>x.id===_retShopId);
-  const sess = sh.sessions.find(s=>s.id===_retSessId);
-  let totalReturn=0, count=0;
-  sess.items.forEach(it=>{
-    const k = it.productId||('n'+it.name);
-    const alreadyRet = (sess.returns||[]).reduce((a,r)=>a+r.items.filter(x=>(x.productId||('n'+x.name))===k).reduce((b,x)=>b+x.qty,0),0);
-    const maxQty = it.qty - alreadyRet;
-    const ck = document.getElementById('retck-'+k);
-    const qEl = document.getElementById('retqty-'+k);
-    if(ck&&ck.checked&&maxQty>0){
-      const qty = Math.min(parseFloat(qEl.value)||1, maxQty);
-      totalReturn += it.sellPrice * qty;
-      count++;
-    }
-  });
+  const {bySess,count}=_collectReturns(sh);
+  let totalReturn=0;
+  Object.values(bySess).forEach(list=>list.forEach(x=>totalReturn+=x.sellPrice*x.qty));
   const el = document.getElementById('returnSummary');
-  if(count>0){
-    el.style.display='';
-    const newBillTotal = sess.newBillTotal - totalReturn;
-    const newBal = Math.max(0, sess.balance - totalReturn);
-    document.getElementById('returnSummaryContent').innerHTML=`
-      <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0"><span style="color:var(--text3)">Items being returned</span><span style="font-weight:700">${count}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0"><span style="color:var(--text3)">Return value (deducted from bill)</span><span style="font-weight:700;color:var(--warn)">-${fmt(totalReturn)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0;border-top:1px solid rgba(251,191,36,.2);margin-top:4px"><span style="color:var(--text3)">Current balance due</span><span style="font-weight:700;color:var(--red)">${fmt(sess.balance)}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0"><span style="font-weight:700">New balance after return</span><span style="font-weight:700;color:${newBal>0?'var(--red)':'var(--green)'}">${newBal>0?fmt(newBal):'₹0.00 ✓'}</span></div>
-    `;
-  } else el.style.display='none';
+  if(!count){ el.style.display='none'; return; }
+  // Return value is always deducted from the current (latest) bill
+  const L = sh.sessions[sh.sessions.length-1];
+  const newBal = Math.max(0, L.balance - totalReturn);
+  const excess = Math.max(0, totalReturn - L.balance);
+  el.style.display='';
+  document.getElementById('returnSummaryContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0"><span style="color:var(--text3)">Items being returned</span><span style="font-weight:700">${count}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0"><span style="color:var(--text3)">Return value (deducted from current bill)</span><span style="font-weight:700;color:var(--warn)">-${fmt(totalReturn)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0;border-top:1px solid rgba(251,191,36,.2);margin-top:4px"><span style="color:var(--text3)">Current balance due</span><span style="font-weight:700;color:var(--red)">${fmt(L.balance)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:4px 0"><span style="font-weight:700">New balance after return</span><span style="font-weight:700;color:${newBal>0?'var(--red)':'var(--green)'}">${newBal>0?fmt(newBal):'₹0.00 ✓'}</span></div>
+    ${excess>0?`<div style="font-size:.76rem;color:var(--warn);padding-top:4px">⚠️ ${fmt(excess)} is more than the balance due — customer has paid extra (refund / adjust separately).</div>`:''}
+  `;
 }
 
 function saveReturn(){
   const sh = db.shops.find(x=>x.id===_retShopId);
-  const sess = sh.sessions.find(s=>s.id===_retSessId);
-  const returnItems=[];
-  let totalReturn=0;
+  const {bySess,count}=_collectReturns(sh);
+  if(!count){toast('Select at least one item to return','err');return;}
+  const L = sh.sessions[sh.sessions.length-1];
+  let totalReturn=0, totalItems=0;
 
-  sess.items.forEach(it=>{
-    const k = it.productId||('n'+it.name);
-    const alreadyRet = (sess.returns||[]).reduce((a,r)=>a+r.items.filter(x=>(x.productId||('n'+x.name))===k).reduce((b,x)=>b+x.qty,0),0);
-    const maxQty = it.qty - alreadyRet;
-    const ck = document.getElementById('retck-'+k);
-    const qEl = document.getElementById('retqty-'+k);
-    if(ck&&ck.checked&&maxQty>0){
-      const qty = Math.min(Math.max(parseFloat(qEl.value)||1, 1), maxQty);
-      returnItems.push({productId:it.productId, name:it.name, sellPrice:it.sellPrice, qty});
-      totalReturn += it.sellPrice * qty;
+  Object.keys(bySess).forEach(sessId=>{
+    const sess=sh.sessions.find(s=>s.id===sessId);
+    const returnItems=bySess[sessId].map(x=>({productId:x.productId,name:x.name,sellPrice:x.sellPrice,qty:x.qty}));
+    const amt=returnItems.reduce((a,x)=>a+x.sellPrice*x.qty,0);
+    totalReturn+=amt; totalItems+=returnItems.length;
+    if(sess===L){
+      // Return from the current bill: log + reduce its items
+      if(!L.returns) L.returns=[];
+      L.returns.push({date:today(),items:returnItems,amount:amt});
+      returnItems.forEach(ri=>{
+        const it=L.items.find(x=>_retKey(x)===_retKey(ri));
+        if(it){ it.qty-=ri.qty; if(it.qty<=0) L.items=L.items.filter(x=>x!==it); }
+      });
+    } else {
+      // Return from an earlier bill: logged on the current bill and deducted from it
+      if(!L.returns) L.returns=[];
+      L.returns.push({date:today(),items:returnItems,amount:amt,fromSessId:sess.id,fromDate:sess.date});
     }
+    // Restore stock
+    returnItems.forEach(it=>{
+      if(it.productId){
+        const p=db.products.find(x=>x.id===it.productId);
+        if(p){ p.qty+=it.qty; p.sold=Math.max(0,p.sold-it.qty); }
+      }
+    });
   });
 
-  if(!returnItems.length){toast('Select at least one item to return','err');return;}
+  // Recalculate the current bill: items value minus returns made from earlier bills
+  const idx=sh.sessions.length-1;
+  const prevBal = idx>0 ? sh.sessions[idx-1].balance : 0;
+  const foreign=(L.returns||[]).filter(r=>r.fromSessId).reduce((a,r)=>a+r.amount,0);
+  L.newBillTotal = Math.max(0, (L.items||[]).reduce((a,it)=>a+(it.sellPrice*it.qty),0) - foreign);
+  L.total = L.newBillTotal + prevBal;
+  L.balance = Math.max(0, L.total - L.paid);
+  const excess = Math.max(0, L.paid - L.total);
 
-  // ── Modify the existing session directly ──
-  // 1. Record the return log inside the session
-  if(!sess.returns) sess.returns = [];
-  sess.returns.push({ date: today(), items: returnItems, amount: totalReturn });
-
-  // 2. Reduce qty in sess.items (remove fully-returned items)
-  returnItems.forEach(ri=>{
-    const it = sess.items.find(x=>(x.productId||('n'+x.name)) === (ri.productId||('n'+ri.name)));
-    if(it){
-      it.qty -= ri.qty;
-      // If qty hits 0, remove it from the items list entirely
-      if(it.qty <= 0) sess.items = sess.items.filter(x=>x!==it);
-    }
-  });
-
-  // 3. Recalculate this session's bill totals
-  const idx = sh.sessions.indexOf(sess);
-  const prevBal = idx > 0 ? sh.sessions[idx-1].balance : 0;
-  sess.newBillTotal = sess.items.reduce((a,it)=>a+(it.sellPrice*it.qty),0);
-  sess.total = sess.newBillTotal + prevBal;
-  sess.balance = Math.max(0, sess.total - sess.paid);
-
-  // 4. Recalculate balance chain for any sessions after this one
-  for(let i=idx+1; i<sh.sessions.length; i++){
-    const s = sh.sessions[i];
-    s.prevBalance = sh.sessions[i-1].balance;
-    s.total = (s.newBillTotal||0) + s.prevBalance;
-    s.balance = Math.max(0, s.total - s.paid);
-  }
-
-  // 5. Restore stock
-  returnItems.forEach(it=>{
-    if(it.productId){
-      const p = db.products.find(x=>x.id===it.productId);
-      if(p){ p.qty += it.qty; p.sold = Math.max(0, p.sold - it.qty); }
-    }
-  });
-
-  toast(`Return done! ↩️ ${returnItems.length} item(s) · ${fmt(totalReturn)} removed from bill`,'ok','pay');
+  toast(`Return done! ↩️ ${totalItems} item(s) · ${fmt(totalReturn)} deducted from current bill${excess>0?' · customer paid '+fmt(excess)+' extra':''}`,'ok','pay');
   closeM('mReturn');
   openShopDetail(_retShopId);
   renderShops();
@@ -5657,6 +5923,256 @@ function saveReturn(){
   if(window.saveToFirestore) saveToFirestore();
 }
 
+
+// ══════════════════════════════════════════
+// EDIT RETURN HISTORY
+// Changing a returned product = undo the old return (item goes back on the
+// customer's bill, stock is reduced again) and apply the new one
+// (stock is restored, bill is reduced).
+// ══════════════════════════════════════════
+let _erShopId=null, _erSessId=null, _erIdx=null, _erRows=[], _erPool=[];
+
+function _erSource(sh,S,r){ return r.fromSessId ? sh.sessions.find(s=>s.id===r.fromSessId) : S; }
+
+// Products that can be returned by this entry, with the max qty for each
+function _erBuildPool(sh,S,r){
+  const src=_erSource(sh,S,r);
+  const map={};
+  const add=(it,q)=>{
+    const k=_retKey(it);
+    if(!map[k]) map[k]={k,productId:it.productId,name:it.name,sellPrice:it.sellPrice,avail:0};
+    map[k].avail+=q;
+  };
+  if(src){
+    (src.items||[]).forEach(it=>add(it,it.qty));
+    // same-bill returns already reduced src.items → add back to get the originally billed qty
+    (src.returns||[]).filter(x=>!x.fromSessId).forEach(x=>x.items.forEach(it=>add(it,it.qty)));
+    // minus everything else already returned from that bill
+    sh.sessions.forEach(s2=>(s2.returns||[]).forEach(x=>{
+      if(x===r) return;
+      const refs = x.fromSessId ? x.fromSessId===src.id : s2===src;
+      if(!refs) return;
+      x.items.forEach(it=>{ const k=_retKey(it); if(map[k]) map[k].avail-=it.qty; });
+    }));
+  }
+  // The entry's own items always stay selectable (also covers a deleted source bill)
+  r.items.forEach(it=>{
+    const k=_retKey(it);
+    if(!map[k]) add(it,it.qty);
+    else if(!src) map[k].avail=Math.max(map[k].avail,it.qty);
+  });
+  const own={}; r.items.forEach(it=>{ own[_retKey(it)]=(own[_retKey(it)]||0)+it.qty; });
+  return Object.values(map)
+    .map(x=>({...x,avail:Math.round(Math.max(x.avail,own[x.k]||0)*1000)/1000}))
+    .filter(x=>x.avail>0);
+}
+
+function _erEntry(){
+  const sh=db.shops.find(x=>x.id===_erShopId); if(!sh) return null;
+  const S=sh.sessions.find(x=>x.id===_erSessId); const r=S&&S.returns[_erIdx];
+  return r?{sh,S,r}:null;
+}
+
+function openEditReturn(shopId,sessId,rIdx){
+  const sh=db.shops.find(x=>x.id===shopId); if(!sh) return;
+  const S=sh.sessions.find(s=>s.id===sessId); if(!S||!S.returns||!S.returns[rIdx]) return;
+  const r=S.returns[rIdx];
+  _erShopId=shopId; _erSessId=sessId; _erIdx=rIdx;
+  _erPool=_erBuildPool(sh,S,r);
+  _erRows=r.items.map(it=>{
+    const pi=_erPool.findIndex(x=>x.k===_retKey(it));
+    return {id:uid(),pi:pi<0?0:pi,qty:it.qty,price:it.sellPrice};
+  });
+  document.getElementById('erInfo').innerHTML=`
+    <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:12px">
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:4px">Return dated <strong style="color:var(--warn)">${fmtD(r.date)}</strong>${r.fromDate?' · from bill dated <strong style="color:var(--warn)">'+fmtD(r.fromDate)+'</strong>':''}</div>
+      <div style="font-size:.82rem;font-weight:700">Customer: <span style="color:var(--accent)">${_escR(sh.name)}</span></div>
+      <div style="font-size:.74rem;color:var(--text3);margin-top:6px;line-height:1.6">${r.damage?"Change the product, quantity or price. The old product goes back onto the customer's bill and its Damaged count is reduced; the new product is marked damaged (Damaged count up, bill reduced).":"Change the product or quantity. The old product goes back onto the customer's bill and its stock is reduced; the new product is returned (stock restored, bill reduced)."}</div>
+    </div>`;
+  renderEr();
+  openM('mEditReturn');
+}
+
+function renderEr(){
+  const _e=_erEntry(); const dmg=!!(_e&&_e.r.damage);
+  const inpStyle="background:var(--input-bg);border:1px solid var(--glass-border);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;font-size:.83rem;outline:none;box-sizing:border-box";
+  document.getElementById('erRows').innerHTML=_erRows.map(row=>{
+    const pl=_erPool[row.pi];
+    return `<div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:10px;display:grid;grid-template-columns:${dmg?'1fr 76px 90px auto':'1fr 84px auto'};gap:8px;align-items:center">
+      <select onchange="erSetPi('${row.id}',this.value)" style="${inpStyle};width:100%">
+        ${_erPool.map((x,i)=>`<option value="${i}" ${i===row.pi?'selected':''} style="background:#062040">${_escR(x.name)} — max ${x.avail}</option>`).join('')}
+      </select>
+      <input type="number" min="0" max="${pl?pl.avail:''}" step="0.001" value="${row.qty}" oninput="erSetQty('${row.id}',this.value)" style="${inpStyle};width:100%" title="Qty">
+      ${dmg?`<input type="number" min="0" step="0.01" value="${row.price}" oninput="erSetPrice('${row.id}',this.value)" style="${inpStyle};width:100%" title="Price (₹ each)" placeholder="₹">`:''}
+      <button class="btn-xs btn-del" onclick="erRm('${row.id}')">✕</button>
+    </div>`;
+  }).join('') || '<div style="text-align:center;color:var(--text3);font-size:.8rem;padding:10px">No items — saving will delete this return</div>';
+  updErSummary();
+}
+function erSetPi(id,v){
+  const row=_erRows.find(x=>x.id===id); if(!row) return;
+  row.pi=parseInt(v)||0;
+  const pl=_erPool[row.pi]; if(pl&&row.qty>pl.avail) row.qty=pl.avail;
+  if(pl) row.price=pl.sellPrice;
+  renderEr();
+}
+function erSetQty(id,v){ const row=_erRows.find(x=>x.id===id); if(row){ row.qty=parseFloat(v)||0; updErSummary(); } }
+function erSetPrice(id,v){ const row=_erRows.find(x=>x.id===id); if(row){ row.price=parseFloat(v); updErSummary(); } }
+function erRm(id){ _erRows=_erRows.filter(x=>x.id!==id); renderEr(); }
+function erAdd(){ if(!_erPool.length) return; _erRows.push({id:uid(),pi:0,qty:1,price:_erPool[0].sellPrice}); renderEr(); }
+
+// Merge rows per product, validate against what can be returned
+function _erCollect(){
+  const _e=_erEntry();
+  if(_e&&_e.r.damage){
+    // damage: keep each row (own price), check the per-product total
+    const items=[], sum={}; let err='';
+    _erRows.forEach(row=>{
+      const pl=_erPool[row.pi]; if(!pl) return;
+      const q=Math.round(row.qty*1000)/1000;
+      if(!(q>0)){ err='Enter a quantity greater than 0 (or remove the row)'; return; }
+      if(!(row.price>=0)){ err='Enter a valid price'; return; }
+      sum[pl.k]=(sum[pl.k]||0)+q;
+      if(sum[pl.k]>pl.avail+1e-9){ err=`Only ${pl.avail} of ${pl.name} can be damaged`; return; }
+      items.push({productId:pl.productId,name:pl.name,sellPrice:row.price,qty:q});
+    });
+    return {items,err};
+  }
+  const byPi={};
+  _erRows.forEach(row=>{ byPi[row.pi]=(byPi[row.pi]||0)+row.qty; });
+  const items=[]; let err='';
+  Object.keys(byPi).forEach(pi=>{
+    const pl=_erPool[pi], q=Math.round(byPi[pi]*1000)/1000;
+    if(!pl) return;
+    if(!(q>0)){ err='Enter a quantity greater than 0 (or remove the row)'; return; }
+    if(q>pl.avail+1e-9){ err=`Only ${pl.avail} of ${pl.name} can be returned`; return; }
+    items.push({productId:pl.productId,name:pl.name,sellPrice:pl.sellPrice,qty:q});
+  });
+  return {items,err};
+}
+
+function updErSummary(){
+  const sh=db.shops.find(x=>x.id===_erShopId); if(!sh) return;
+  const S=sh.sessions.find(s=>s.id===_erSessId); const r=S&&S.returns[_erIdx]; if(!r) return;
+  const el=document.getElementById('erSummary');
+  const {items}=_erCollect();
+  const oldM={}, newM={}, meta={};
+  r.items.forEach(it=>{ const k=_retKey(it); oldM[k]=(oldM[k]||0)+it.qty; meta[k]=it; });
+  items.forEach(it=>{ const k=_retKey(it); newM[k]=(newM[k]||0)+it.qty; meta[k]=it; });
+  const lines=[]; let warn='';
+  Object.keys(meta).forEach(k=>{
+    const d=Math.round(((newM[k]||0)-(oldM[k]||0))*1000)/1000; if(!d) return;
+    const it=meta[k];
+    const p=it.productId?db.products.find(x=>x.id===it.productId):null;
+    if(p && !r.damage && p.qty+d<0) warn+=`<div style="font-size:.76rem;color:var(--red);padding-top:4px">⚠️ Not enough stock of ${_escR(it.name)} (have ${p.qty}) to undo this return</div>`;
+    if(p && r.damage && (p.damaged||0)+d<0) warn+=`<div style="font-size:.76rem;color:var(--red);padding-top:4px">⚠️ Damaged count of ${_escR(it.name)} is too low to undo this</div>`;
+    lines.push(d<0
+      ? `<div style="font-size:.82rem;padding:3px 0"><b>${_escR(it.name)}</b> × ${-d} → <span style="color:var(--red)">added back to customer's bill</span>${p?(r.damage?` · damaged <span style="color:var(--red)">−${-d}</span>`:` · stock <span style="color:var(--red)">−${-d}</span>`):''}</div>`
+      : `<div style="font-size:.82rem;padding:3px 0"><b>${_escR(it.name)}</b> × ${d} → <span style="color:var(--warn)">${r.damage?'damaged':'returned'}</span>${p?(r.damage?` · damaged <span style="color:var(--red)">+${d}</span>`:` · stock <span style="color:var(--green)">+${d}</span>`):''}</div>`);
+  });
+  if(!lines.length && Math.abs(r.amount-items.reduce((a,x)=>a+x.sellPrice*x.qty,0))<1e-9){ el.style.display='none'; return; }
+  if(!lines.length) lines.push('<div style="font-size:.82rem;padding:3px 0;color:var(--text3)">Price changed</div>');
+  const newAmt=items.reduce((a,x)=>a+x.sellPrice*x.qty,0);
+  const diff=r.amount-newAmt;
+  el.style.display='';
+  el.innerHTML=`
+    <div style="font-size:.72rem;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">What will change</div>
+    ${lines.join('')}
+    <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:6px 0 2px;border-top:1px solid rgba(251,191,36,.2);margin-top:6px"><span style="color:var(--text3)">Return value</span><span style="font-weight:700">${fmt(r.amount)} → ${fmt(newAmt)}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:.84rem;padding:2px 0"><span style="color:var(--text3)">Customer's bill</span><span style="font-weight:700;color:${diff>0?'var(--red)':'var(--green)'}">${diff>=0?'+':'−'}${fmt(Math.abs(diff))}</span></div>
+    ${warn}`;
+}
+
+function saveEditReturn(){
+  const sh=db.shops.find(x=>x.id===_erShopId); if(!sh) return;
+  const S=sh.sessions.find(s=>s.id===_erSessId); const r=S&&S.returns[_erIdx]; if(!r) return;
+  const {items,err}=_erCollect();
+  if(err){ toast(err,'err'); return; }
+  if(!items.length){
+    customConfirm('No items left — delete this return? The products go back on the customer\'s bill and stock is reduced.','↩️','Delete Return', ok=>{ if(ok) _erApply(sh,S,r,[]); });
+    return;
+  }
+  _erApply(sh,S,r,items);
+}
+
+function _erApply(sh,S,r,newItems){
+  const sameBill=!r.fromSessId;
+  const oldItems=r.items, oldAmt=r.amount;
+
+  // Net stock change per product: new return restores stock, old return is undone
+  const delta={};
+  oldItems.forEach(it=>{ if(it.productId) delta[it.productId]=(delta[it.productId]||0)-it.qty; });
+  newItems.forEach(it=>{ if(it.productId) delta[it.productId]=(delta[it.productId]||0)+it.qty; });
+  const isDmg=!!r.damage;
+  for(const pid in delta){
+    const p=db.products.find(x=>x.id===pid);
+    if(!p) continue;
+    if(isDmg){
+      if((p.damaged||0)+delta[pid] < -1e-9){ toast(`Damaged count of ${p.name} is too low to undo this`,'err'); return; }
+    } else if(p.qty+delta[pid] < -1e-9){ toast(`Not enough stock of ${p.name} (have ${p.qty}) to undo this return`,'err'); return; }
+  }
+  for(const pid in delta){
+    const p=db.products.find(x=>x.id===pid); if(!p||!delta[pid]) continue;
+    if(isDmg) p.damaged=Math.max(0,Math.round(((p.damaged||0)+delta[pid])*1000)/1000);
+    else p.qty=Math.round((p.qty+delta[pid])*1000)/1000;
+    p.sold=Math.max(0,Math.round((p.sold-delta[pid])*1000)/1000);
+  }
+  if(isDmg){
+    // keep each product's damage log in step with the edited entry
+    if(!r.dmgId) r.dmgId=uid();
+    db.products.forEach(p=>{ if(p.damageLog) p.damageLog=p.damageLog.filter(e=>e.dmgId!==r.dmgId); });
+    newItems.forEach(it=>{
+      const p=db.products.find(x=>x.id===it.productId); if(!p) return;
+      if(!p.damageLog) p.damageLog=[];
+      p.damageLog.push({id:uid(),dmgId:r.dmgId,date:r.date,qty:it.qty,price:it.sellPrice,note:r.note||'',shopId:sh.id,shopName:sh.name});
+    });
+  }
+
+  // Return was taken off this bill's item list → put old items back, take new ones off
+  if(sameBill){
+    oldItems.forEach(ri=>{
+      const it=S.items.find(x=>_retKey(x)===_retKey(ri));
+      if(it) it.qty+=ri.qty;
+      else S.items.push({productId:ri.productId,name:ri.name,sellPrice:ri.sellPrice,qty:ri.qty,qtyText:''});
+    });
+    newItems.forEach(ni=>{
+      const it=S.items.find(x=>_retKey(x)===_retKey(ni));
+      if(it){ it.qty=Math.round((it.qty-ni.qty)*1000)/1000; if(it.qty<=1e-9) S.items=S.items.filter(x=>x!==it); }
+    });
+  }
+
+  // Update the history entry
+  const newAmt=newItems.reduce((a,x)=>a+x.sellPrice*x.qty,0);
+  if(newItems.length){
+    r.items=newItems.map(x=>({productId:x.productId,name:x.name,sellPrice:x.sellPrice,qty:x.qty}));
+    r.amount=newAmt;
+    r.edited=today();
+  } else {
+    S.returns.splice(_erIdx,1);
+  }
+
+  // Bill changes by the difference (keeps discount / delivery charge untouched), then re-chain balances
+  const base = S.newBillTotal!==undefined ? S.newBillTotal : (S.prevBalance>0 ? S.total-S.prevBalance : S.total);
+  S.newBillTotal=Math.max(0,base+(oldAmt-newAmt));
+  const idx=sh.sessions.indexOf(S);
+  for(let i=idx;i<sh.sessions.length;i++){
+    const s=sh.sessions[i];
+    s.prevBalance = i>0 ? sh.sessions[i-1].balance : 0;
+    const bt = s.newBillTotal!==undefined ? s.newBillTotal : (s.prevBalance>0 ? s.total-s.prevBalance : s.total);
+    s.total = bt + s.prevBalance;
+    s.balance = Math.max(0, s.total - s.paid);
+  }
+
+  logActivity(`✏️ Return edited for ${sh.name} — ${fmt(oldAmt)} → ${fmt(newAmt)}`);
+  toast(newItems.length?(isDmg?'Damage updated ✏️ damaged count & bill adjusted':'Return updated ✏️ stock & bill adjusted'):(isDmg?'Damage deleted — damaged count & bill adjusted':'Return deleted — stock & bill adjusted'),'ok','stock');
+  if(currCompId) renderProds();
+  renderComps();
+  closeM('mEditReturn');
+  openShopDetail(sh.id);
+  renderShops();
+  renderDashStats();
+  if(window.saveToFirestore) saveToFirestore();
+}
 
 function openShopDetail(id){
   currShopId=id;
@@ -5723,6 +6239,7 @@ function openShopDetail(id){
     const isOldBill = sess.type === 'oldbill';
     const hasReturns = sess.returns && sess.returns.length > 0;
     const totalReturned = hasReturns ? sess.returns.reduce((a,r)=>a+r.amount,0) : 0;
+    const anyDmg = hasReturns && sess.returns.some(x=>x.damage), allDmg = hasReturns && sess.returns.every(x=>x.damage);
     const newBill = sess.newBillTotal !== undefined ? sess.newBillTotal : (sess.prevBalance>0 ? sess.total - sess.prevBalance : sess.total);
     const grandTotal = sess.total;
     const prevBal = sess.prevBalance || 0;
@@ -5732,7 +6249,7 @@ function openShopDetail(id){
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:36px;height:36px;border-radius:10px;background:${isOldBill?'rgba(251,191,36,.1)':'rgba(249,168,212,.1)'};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${isOldBill?'📋':pi[sess.payMethod]||'💳'}</div>
           <div>
-            <div style="font-size:.87rem;font-weight:700">📅 ${fmtD(sess.date)}${isOldBill?' <span style="font-size:.7rem;background:rgba(251,191,36,.15);color:var(--warn);border-radius:6px;padding:2px 7px;margin-left:6px">Old Bill</span>':''}${hasReturns?' <span style="font-size:.7rem;background:rgba(251,191,36,.2);color:var(--warn);border-radius:6px;padding:2px 7px;margin-left:4px">↩ Return</span>':''}${isLatest?' <span style="font-size:.7rem;background:rgba(134,239,172,.15);color:var(--green);border-radius:6px;padding:2px 7px;margin-left:4px">Latest</span>':''}</div>
+            <div style="font-size:.87rem;font-weight:700">📅 ${fmtD(sess.date)}${isOldBill?' <span style="font-size:.7rem;background:rgba(251,191,36,.15);color:var(--warn);border-radius:6px;padding:2px 7px;margin-left:6px">Old Bill</span>':''}${hasReturns?' <span style="font-size:.7rem;background:rgba(251,191,36,.2);color:var(--warn);border-radius:6px;padding:2px 7px;margin-left:4px">'+(allDmg?'🔴 Damage':anyDmg?'↩ Return / 🔴 Damage':'↩ Return')+'</span>':''}${isLatest?' <span style="font-size:.7rem;background:rgba(134,239,172,.15);color:var(--green);border-radius:6px;padding:2px 7px;margin-left:4px">Latest</span>':''}</div>
             <div style="font-size:.73rem;color:var(--text3)">${isOldBill?'Previous Bill Entry':sess.items.length+' item(s) · '+sess.payMethod}${hasReturns?' · <span style="color:var(--warn)">'+totalReturned.toLocaleString('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0})+' returned</span>':''}</div>
           </div>
         </div>
@@ -5768,7 +6285,7 @@ function openShopDetail(id){
               <td style="text-align:right;color:var(--accent)">${fmt(newBill + totalReturned)}</td>
             </tr>
             ${hasReturns?`<tr>
-              <td colspan="3" style="color:var(--warn);font-size:.82rem">↩ Return Amount</td>
+              <td colspan="3" style="color:var(--warn);font-size:.82rem">${allDmg?'🔴 Damage Amount':anyDmg?'↩ Return / Damage Amount':'↩ Return Amount'}</td>
               <td style="text-align:right;color:var(--warn)">-${fmt(totalReturned)}</td>
             </tr>
             <tr style="font-weight:700;background:rgba(249,168,212,.06)">
@@ -5800,17 +6317,20 @@ function openShopDetail(id){
         <!-- Return log -->
         ${hasReturns?`
           <div style="margin-top:12px;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:12px">
-            <div style="font-size:.72rem;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">↩️ Return History</div>
-            ${sess.returns.map(r=>`
+            <div style="font-size:.72rem;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${allDmg?'🔴 Damage History':anyDmg?'↩️ Return / 🔴 Damage History':'↩️ Return History'}</div>
+            ${sess.returns.map((r,rIdx)=>`
               <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(251,191,36,.15)">
-                <div style="font-size:.74rem;color:var(--text3);margin-bottom:5px">📅 ${fmtD(r.date)}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px">
+                  <div style="font-size:.74rem;color:var(--text3)">${r.damage?'<span style="color:var(--red);font-weight:700">🔴 Damage</span> · ':''}📅 ${fmtD(r.date)}${r.fromDate?' · from bill dated '+fmtD(r.fromDate):''}${r.note?' · '+_escR(r.note):''}${r.edited?' · <span style="color:var(--warn)">✏️ edited</span>':''}</div>
+                  ${isOwner()?`<button onclick="event.stopPropagation();openEditReturn('${sh.id}','${sess.id}',${rIdx})" style="background:rgba(249,168,212,.1);border:1px solid rgba(249,168,212,.25);border-radius:8px;padding:4px 10px;font-size:.72rem;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap">✏️ Edit</button>`:''}
+                </div>
                 ${r.items.map(it=>`
                   <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:2px 0">
                     <span>${it.name} × ${it.qty}</span>
                     <span style="color:var(--warn);font-weight:600">-${fmt(it.sellPrice*it.qty)}</span>
                   </div>`).join('')}
                 <div style="display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;border-top:1px dashed rgba(251,191,36,.2);margin-top:4px;padding-top:4px">
-                  <span style="color:var(--warn)">Return Total</span>
+                  <span style="color:var(--warn)">${r.damage?'Damage':'Return'} Total</span>
                   <span style="color:var(--warn)">-${fmt(r.amount)}</span>
                 </div>
               </div>`).join('')}
@@ -5824,6 +6344,7 @@ function openShopDetail(id){
               <div class="pay-hist-info">
                 <strong>${fmt(pay.amount)}</strong>
                 <span>📅 ${fmtD(pay.date)} · ${pay.method}</span>
+                ${pay.note?`<span class="pay-note">📝 ${String(pay.note).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`:''}
               </div>
               <button onclick="openEditPayModal('${sh.id}','${sess.id}','${pay.id}')" style="background:rgba(249,168,212,.1);border:1px solid rgba(249,168,212,.25);border-radius:8px;padding:4px 10px;font-size:.72rem;font-weight:600;color:var(--accent);cursor:pointer;white-space:nowrap;transition:all .2s" onmouseover="this.style.background='rgba(249,168,212,.2)'" onmouseout="this.style.background='rgba(249,168,212,.1)'">✏️ Edit</button>
             </div>
@@ -6023,7 +6544,12 @@ function delSess(shopId, sessId){
         sess.returns.forEach(r=>{
           r.items.forEach(it=>{
             const p = db.products.find(x=>x.id===it.productId);
-            if(p){ p.qty = Math.max(0, p.qty - it.qty); p.sold += it.qty; }
+            if(!p) return;
+            if(r.damage){
+              // damage never added to good stock: just undo the Damaged column
+              p.damaged = Math.max(0,(p.damaged||0) - it.qty); p.sold += it.qty;
+              if(p.damageLog) p.damageLog = p.damageLog.filter(e=>e.dmgId!==r.dmgId);
+            } else { p.qty = Math.max(0, p.qty - it.qty); p.sold += it.qty; }
           });
         });
       }
@@ -6333,6 +6859,7 @@ function renderCollections(){
             billDate,
             amount: pay.amount,
             method: pay.method||sess.payMethod||'Cash',
+            note: pay.note||'',
             sessBalance: sess.balance
           });
         });
@@ -6418,7 +6945,7 @@ function renderCollections(){
           onclick="switchSellTab('shops');setTimeout(()=>openShopDetail('${r.shopId}'),80)">${r.shop}</td>
       <td style="color:var(--text3);font-size:.82rem">${fmtD(r.billDate)}</td>
       <td><span style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:700;color:var(--green)">${fmt(r.amount)}</span></td>
-      <td>${pi[r.method]||'💳'} <span style="font-size:.8rem;color:var(--text3)">${r.method}</span></td>
+      <td>${pi[r.method]||'💳'} <span style="font-size:.8rem;color:var(--text3)">${r.method}</span>${r.note?`<div style="font-size:.72rem;color:var(--text3);font-style:italic;margin-top:2px">📝 ${String(r.note).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`:''}</td>
       <td><span class="due-badge ${r.sessBalance>0?'due-red':'due-green'}">${r.sessBalance>0?fmt(r.sessBalance):'Settled ✓'}</span></td>
     </tr>
   `).join('');
@@ -10328,6 +10855,10 @@ window.addEventListener('load', function() {
         <button class="pay-opt" onclick="selEpPay(this,'PhonePe')">📲 PhonePe</button>
       </div>
     </div>
+    <div class="fg">
+      <label>Notes <span style="font-weight:400;color:var(--text3);text-transform:none;letter-spacing:0">(optional)</span></label>
+      <textarea id="epNote" rows="2" maxlength="200" placeholder="Add a note…" style="width:100%;resize:vertical"></textarea>
+    </div>
     <div id="epSummary" style="display:none;margin-top:6px" class="sell-sum"></div>
     <div class="form-acts">
       <button class="btn" onclick="closeM('mEditPay')">Cancel</button>
@@ -10354,6 +10885,7 @@ function openEditPayModal(shopId, sessId, payId){
   _epPayMethod=pay.method||'Cash';
 
   document.getElementById('epAmt').value = pay.amount;
+  document.getElementById('epNote').value = pay.note || '';
   document.getElementById('epDate').value = pay.date || new Date().toISOString().substr(0,10);
 
   // Set method buttons
@@ -10409,6 +10941,8 @@ function saveEditPay(){
   pay.amount = newAmt;
   pay.date = newDate;
   pay.method = _epPayMethod;
+  const epNoteVal = document.getElementById('epNote').value.trim();
+  if(epNoteVal) pay.note = epNoteVal; else delete pay.note;
 
   // Recalculate session totals
   sess.paid = (sess.payments||[]).reduce((s,p)=>s+p.amount, 0);
@@ -10484,9 +11018,9 @@ function deletePayment(){
         <div style="font-weight:700;color:var(--red);font-size:1rem;margin-bottom:8px">🔴 Damage</div>
         <div style="font-size:.84rem;color:var(--text2);line-height:1.7">
           Your stock gets damaged or lost before reaching the customer.<br><br>
-          ❌ Stock is <b>reduced</b><br>
+          ✅ Stock quantity is <b>not changed</b><br>
           📋 Damage is <b>recorded</b> for tracking<br>
-          🧾 <b>No bill is affected</b>
+          🧾 From a customer's page you can instead deduct it from any of their <b>bills</b> (price editable) — it is added to the product's <b>Damaged</b> column
         </div>
         <button class="btn btn-sm" onclick="closeM('mReturnDmgInfo');openDamageModal()" style="margin-top:12px;background:rgba(251,113,133,.15);color:var(--red);border:1px solid rgba(251,113,133,.3);width:100%;justify-content:center">🔴 Report Damage Now</button>
       </div>
