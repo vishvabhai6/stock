@@ -1163,6 +1163,19 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
   background:rgba(134,239,172,.12);color:var(--green);
 }
 .owner-badge{background:rgba(249,168,212,.12);color:var(--accent);}
+
+/* ── Order List: mobile ── */
+@media(max-width:600px){
+  #cp-orders .ord-form{grid-template-columns:1fr 1fr!important}
+  #cp-orders .ord-wide{grid-column:1/-1!important}
+  #cp-orders .ord-form .btn{grid-column:1/-1;width:100%;justify-content:center}
+  #cp-orders .ord-no{display:none}
+  #cp-orders .ord-inp{width:64px!important;padding:5px 6px!important}
+  #cp-orders td,#cp-orders th{padding:7px 6px}
+  #cp-orders td strong{word-break:break-word}
+  #cp-orders .btn-sm{padding:5px 8px}
+  #cp-orders #ordSaveBtn,#cp-orders #ordCancelBtn{flex:1;justify-content:center}
+}
 </style>
 </head>
 <body>
@@ -1322,6 +1335,11 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
     <div class="bread"><a onclick="backToComps()">Companies</a><span class="bread-sep">›</span><span id="currCompName"></span></div>
     <!-- Company Finance Summary Banner -->
     <div id="compFinanceBanner" style="margin-bottom:18px"></div>
+    <div style="display:flex;gap:4px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:4px;margin-bottom:16px;width:fit-content;flex-wrap:wrap">
+      <button class="hf-btn on" id="cptab-products" onclick="switchCompTab('products')">📦 Products</button>
+      <button class="hf-btn" id="cptab-orders" onclick="switchCompTab('orders')">🧾 Order List</button>
+    </div>
+    <div id="cp-products">
     <div class="sec-hdr">
       <div class="sec-title" id="prodTitle"></div>
       <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
@@ -1341,6 +1359,56 @@ tbody tr:hover{background:var(--glass-bg-h);transform:translateX(2px)}
         </tr></thead>
         <tbody id="prodTbody"></tbody>
       </table>
+    </div>
+    </div><!-- /cp-products -->
+
+    <!-- Order List (products to order from this company) -->
+    <div id="cp-orders" style="display:none">
+      <div class="sec-hdr">
+        <div class="sec-title" id="ordFormTitle">🧾 New Order</div>
+      </div>
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:14px;padding:14px;margin-bottom:14px">
+        <div class="ord-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end">
+          <div class="fg ord-wide" style="margin:0">
+            <label>Order Date</label>
+            <input type="date" id="ordDate" onchange="if(_ordDraft)_ordDraft.date=this.value">
+          </div>
+          <div class="fg ord-wide" style="margin:0;grid-column:span 2">
+            <label>Product Name</label>
+            <input type="text" id="ordName" list="ordProdList" placeholder="Select or type product…" oninput="ordPickProduct()" autocomplete="off">
+            <datalist id="ordProdList"></datalist>
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Quantity</label>
+            <input type="number" id="ordQty" min="0" step="any" placeholder="0" oninput="ordLiveAmt()" onkeydown="if(event.key==='Enter')addOrderItem()">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Price (₹) <span style="font-weight:400;color:var(--text3)">edit if changed</span></label>
+            <input type="number" id="ordPrice" min="0" step="any" placeholder="0" oninput="ordLiveAmt()" onkeydown="if(event.key==='Enter')addOrderItem()">
+          </div>
+          <div class="fg" style="margin:0">
+            <label>Amount</label>
+            <div id="ordAmt" style="padding:10px 12px;border-radius:10px;background:var(--input-bg);border:1px solid var(--glass-border);font-weight:700;color:var(--green)">₹0.00</div>
+          </div>
+          <button class="btn btn-primary" onclick="addOrderItem()" style="justify-content:center;height:42px">＋ Add</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="ord-no">#</th><th>Product</th><th>Price</th><th>Qty</th><th>Amount</th><th>Actions</th></tr></thead>
+          <tbody id="ordTbody"></tbody>
+          <tfoot id="ordTfoot"></tfoot>
+        </table>
+      </div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;margin:14px 0 26px">
+        <button class="btn btn-primary" id="ordSaveBtn" onclick="saveOrder()">💾 Save Order</button>
+        <button class="btn btn-ghost" id="ordCancelBtn" style="display:none" onclick="cancelOrderEdit()">✕ Cancel Edit</button>
+        <button class="btn btn-ghost" onclick="resetOrderDraft()">🧹 Clear Form</button>
+      </div>
+
+      <div class="sec-hdr"><div class="sec-title">📅 Saved Orders</div>
+        <button class="btn btn-ghost" onclick="downloadOrderPDF(null)">📄 Download All (PDF)</button></div>
+      <div id="ordSaved"></div>
     </div>
   </div>
 
@@ -3767,7 +3835,385 @@ function openComp(id){
   document.getElementById('sv-products').style.display='';
   const ps=document.getElementById('prodSearch'); if(ps) ps.value='';
   renderCompFinanceBanner(id);
+  switchCompTab('products');
   renderProds();
+}
+
+// ══════════════════════════════════════════
+// COMPANY ORDER LIST (products to order from a company)
+// ══════════════════════════════════════════
+let _ordDraft=null, _ordDraftComp=null;
+function _ordToday(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function switchCompTab(tab){
+  ['products','orders'].forEach(t=>{
+    const b=document.getElementById('cptab-'+t); if(b) b.classList[t===tab?'add':'remove']('on');
+    const el=document.getElementById('cp-'+t); if(el) el.style.display=(t===tab)?'':'none';
+  });
+  if(tab==='orders'){
+    if(!_ordDraft || _ordDraftComp!==currCompId) resetOrderDraft(true);
+    renderOrderList();
+  }
+}
+function _ordComp(){ return db.companies.find(x=>x.id===currCompId); }
+function _ordEsc(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _ordMigrate(c){
+  // older single list -> saved order dated today
+  if(c.orderList && c.orderList.length){
+    if(!c.orders) c.orders=[];
+    c.orders.push({id:uid(), date:_ordToday(), items:c.orderList});
+    c.orderList=[];
+  }
+  if(!c.orders) c.orders=[];
+}
+function resetOrderDraft(silent){
+  _ordDraft={id:null, date:_ordToday(), items:[]};
+  _ordDraftComp=currCompId;
+  if(!silent) renderOrderList();
+}
+function ordLiveAmt(){
+  const q=parseFloat(document.getElementById('ordQty').value)||0;
+  const pr=parseFloat(document.getElementById('ordPrice').value)||0;
+  document.getElementById('ordAmt').textContent=fmt(q*pr);
+}
+function ordPickProduct(){
+  const name=document.getElementById('ordName').value.trim().toLowerCase();
+  const p=db.products.find(x=>x.cId===currCompId && x.name.toLowerCase()===name);
+  if(p){ document.getElementById('ordPrice').value = landedCost(p)||p.buy||''; ordLiveAmt(); }
+}
+function addOrderItem(){
+  if(!_ordDraft) resetOrderDraft(true);
+  const name=document.getElementById('ordName').value.trim();
+  const qty=parseFloat(document.getElementById('ordQty').value);
+  const price=parseFloat(document.getElementById('ordPrice').value);
+  if(!name){ toast('Enter product name','err'); return; }
+  if(!(qty>0)){ toast('Enter quantity','err'); return; }
+  if(isNaN(price)||price<0){ toast('Enter price','err'); return; }
+  const p=db.products.find(x=>x.cId===currCompId && x.name.toLowerCase()===name.toLowerCase());
+  _ordDraft.items.push({id:uid(), productId:p?p.id:null, name:p?p.name:name, qty, price});
+  document.getElementById('ordName').value='';
+  document.getElementById('ordQty').value='';
+  document.getElementById('ordPrice').value='';
+  ordLiveAmt();
+  renderOrderList();
+  document.getElementById('ordName').focus();
+}
+function updateDraftItem(id,field,val){
+  const it=_ordDraft.items.find(x=>x.id===id); if(!it) return;
+  const n=parseFloat(val); if(!isNaN(n)&&n>=0) it[field]=n;
+  renderOrderList();
+}
+function deleteDraftItem(id){
+  _ordDraft.items=_ordDraft.items.filter(x=>x.id!==id);
+  renderOrderList();
+}
+function saveOrder(){
+  const c=_ordComp(); if(!c||!_ordDraft) return;
+  _ordMigrate(c);
+  const date=document.getElementById('ordDate').value;
+  if(!date){ toast('Select order date','err'); return; }
+  if(!_ordDraft.items.length){ toast('Add at least one product','err'); return; }
+  _ordDraft.date=date;
+  const items=_ordDraft.items.map(x=>({...x}));
+  if(_ordDraft.id){
+    const o=c.orders.find(x=>x.id===_ordDraft.id);
+    if(o){ o.date=date; o.items=items; o.updatedAt=new Date().toISOString(); }
+    toast('Order updated ✏️','ok');
+  } else {
+    c.orders.push({id:uid(), date, items, createdAt:new Date().toISOString()});
+    toast('Order saved 🧾','ok');
+  }
+  resetOrderDraft(true);
+  renderOrderList();
+  if(window.saveToFirestore) saveToFirestore();
+}
+function editOrder(id){
+  const c=_ordComp(); if(!c) return;
+  const o=(c.orders||[]).find(x=>x.id===id); if(!o) return;
+  _ordDraft={id:o.id, date:o.date, items:o.items.map(x=>({...x}))};
+  _ordDraftComp=currCompId;
+  renderOrderList();
+  window.scrollTo({top:document.getElementById('cp-orders').offsetTop,behavior:'smooth'});
+}
+function cancelOrderEdit(){ resetOrderDraft(); }
+function deleteOrder(id){
+  const c=_ordComp(); if(!c) return;
+  const o=(c.orders||[]).find(x=>x.id===id); if(!o) return;
+  if(!confirm('Delete the order dated '+fmtD(o.date)+'?')) return;
+  c.orders=c.orders.filter(x=>x.id!==id);
+  if(_ordDraft&&_ordDraft.id===id) resetOrderDraft(true);
+  renderOrderList();
+  if(window.saveToFirestore) saveToFirestore();
+  toast('Order deleted 🗑️','ok');
+}
+function downloadOrderPDF(orderId){
+  const c=_ordComp(); if(!c) return;
+  _ordMigrate(c);
+  let orders=(c.orders||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  if(orderId) orders=orders.filter(o=>o.id===orderId);
+  if(!orders.length){ toast('No saved orders to download','err'); return; }
+  const JsPDF=_getJsPDF();
+  if(!JsPDF){ toast('PDF library not loaded — try again','err'); return; }
+
+  const doc=new JsPDF({unit:'mm',format:'a4'});
+  const pageW=210, pageH=297, margin=14;
+  const money=n=>'Rs.'+Number(n).toFixed(2);
+  const qtyStr=n=>String(parseFloat(Number(n).toFixed(3)));
+  const ITEMS_PER_PAGE=25;
+  const colUnit=130, colQty=152;
+
+  function pageHeader(subtitle, dateLabel, dateVal, first){
+    doc.setDrawColor(0); doc.setLineWidth(first?1.2:0.8);
+    doc.line(margin,first?10:8,pageW-margin,first?10:8);
+    doc.setLineWidth(first?0.3:0.25);
+    doc.line(margin,first?12.5:10,pageW-margin,first?12.5:10);
+    doc.setFont('times','bold'); doc.setFontSize(first?18:16); doc.setTextColor(0);
+    doc.text('Sivasakthi Marketing',margin,first?21:18);
+    doc.setFont('times','italic'); doc.setFontSize(first?8:7.5); doc.setTextColor(100);
+    doc.text(subtitle,margin,first?27:24);
+    if(first && dateVal){
+      doc.setFont('times','bold'); doc.setFontSize(8); doc.setTextColor(0);
+      doc.text(dateLabel,pageW-margin,21,{align:'right'});
+      doc.setFont('times','normal');
+      doc.text(dateVal,pageW-margin,26,{align:'right'});
+    }
+    doc.setLineWidth(0.3); doc.setDrawColor(0);
+    doc.line(margin,first?30:27,pageW-margin,first?30:27);
+  }
+  function metaBox(y,cells){
+    const h=17, colW=(pageW-2*margin)/2;
+    doc.setDrawColor(0); doc.setLineWidth(0.22);
+    doc.rect(margin,y,pageW-2*margin,h);
+    doc.line(margin+colW,y,margin+colW,y+h);
+    doc.line(margin,y+h/2,pageW-margin,y+h/2);
+    cells.forEach((cell,i)=>{
+      const x=margin+(i%2)*colW+3, yy=y+Math.floor(i/2)*(h/2);
+      doc.setFont('times','italic'); doc.setFontSize(6.5); doc.setTextColor(120);
+      doc.text(cell[0],x,yy+3.5);
+      doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(0);
+      doc.text(String(cell[1]),x,yy+8);
+    });
+    return y+h;
+  }
+  function tableHeader(y){
+    doc.setFontSize(7); doc.setFont('times','bold'); doc.setTextColor(120);
+    doc.text('#',margin+2,y);
+    doc.text('PRODUCT',margin+10,y);
+    doc.text('UNIT PRICE',colUnit,y,{align:'right'});
+    doc.text('QTY',colQty,y,{align:'right'});
+    doc.text('AMOUNT',pageW-margin,y,{align:'right'});
+    y+=2;
+    doc.setLineWidth(0.4); doc.setDrawColor(0);
+    doc.line(margin,y,pageW-margin,y);
+    return y+5;
+  }
+  function pageFooter(label){
+    doc.setLineWidth(0.25); doc.setDrawColor(0);
+    doc.line(margin,278,pageW-margin,278);
+    doc.setFont('times','italic'); doc.setFontSize(7); doc.setTextColor(120);
+    doc.text(label,pageW/2,282,{align:'center'});
+  }
+  function signature(){
+    doc.setLineWidth(0.25); doc.setDrawColor(0);
+    doc.line(pageW-margin-40,272,pageW-margin,272);
+    doc.setFont('times','normal'); doc.setFontSize(6.5); doc.setTextColor(120);
+    doc.text('Authorized Signature',pageW-margin,275.5,{align:'right'});
+  }
+  function continuedFooter(){
+    doc.setLineWidth(0.25); doc.setDrawColor(0);
+    doc.line(margin,285,pageW-margin,285);
+    doc.setFont('times','italic'); doc.setFontSize(7.5); doc.setTextColor(100);
+    doc.text('Sivasakthi Marketing  \u00B7  Continued on next page\u2026',pageW/2,290,{align:'center'});
+  }
+
+  let grand=0, grandQty=0;
+  const summary=[];
+
+  orders.forEach((o,oi)=>{
+    if(oi>0) doc.addPage();
+    let tq=0,tt=0;
+    o.items.forEach(it=>{ tq+=it.qty; tt+=it.qty*it.price; });
+    grand+=tt; grandQty+=tq;
+    summary.push({date:o.date,products:o.items.length,qty:tq,total:tt});
+
+    pageHeader('Purchase Order','Order Date:',pdfSafe(fmtD(o.date)),true);
+    let y=metaBox(32,[
+      ['FROM (COMPANY)',pdfSafe(c.name).substring(0,40)],
+      ['TO',"Sivasakthi Marketing"],
+      ['ORDER DATE',pdfSafe(fmtD(o.date))],
+      ['NO. OF PRODUCTS',o.items.length]
+    ]);
+    y=tableHeader(y+6);
+
+    let pageCount=0;
+    o.items.forEach((it,i)=>{
+      if(pageCount>0 && pageCount%ITEMS_PER_PAGE===0){
+        continuedFooter();
+        doc.addPage();
+        pageHeader('Purchase Order  \u00B7  Continued ('+pdfSafe(c.name)+'  \u2014  '+pdfSafe(fmtD(o.date))+')','','',false);
+        y=tableHeader(32);
+        pageCount=0;
+      }
+      if(pageCount%2===1){ doc.setFillColor(250,250,250); doc.rect(margin,y-4.5,pageW-2*margin,6,'F'); }
+      doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(0);
+      doc.text(String(i+1),margin+2,y);
+      doc.text(pdfSafe(it.name).substring(0,38),margin+10,y);
+      doc.text(money(it.price),colUnit,y,{align:'right'});
+      doc.text(qtyStr(it.qty),colQty,y,{align:'right'});
+      doc.setFont('times','bold');
+      doc.text(money(it.qty*it.price),pageW-margin,y,{align:'right'});
+      doc.setDrawColor(225); doc.setLineWidth(0.15);
+      doc.line(margin,y+2,pageW-margin,y+2);
+      doc.setDrawColor(0);
+      y+=6; pageCount++;
+    });
+
+    // ── Totals box (same style as bill) ──
+    y+=3;
+    const boxX=119, boxW=pageW-margin-boxX;
+    const rows=[['Total Products',String(o.items.length)],['Total Quantity',qtyStr(tq)]];
+    const rowH=6, boxH=3+rows.length*rowH+3, totH=10;
+    if(y+boxH+totH+30>pageH-14){ doc.addPage(); pageHeader('Purchase Order  \u00B7  Continued ('+pdfSafe(c.name)+'  \u2014  '+pdfSafe(fmtD(o.date))+')','','',false); y=34; }
+    doc.setDrawColor(180); doc.setLineWidth(0.3);
+    doc.rect(boxX,y,boxW,boxH,'S');
+    doc.setDrawColor(0);
+    let ry=y+6;
+    rows.forEach(([l,v])=>{
+      doc.setFont('times','normal'); doc.setFontSize(7.5); doc.setTextColor(60);
+      doc.text(l,boxX+3,ry);
+      doc.setFont('times','bold'); doc.setTextColor(0);
+      doc.text(v,pageW-margin-2,ry,{align:'right'});
+      ry+=rowH;
+    });
+    y=y+boxH+3;
+    doc.setDrawColor(0); doc.setLineWidth(0.5);
+    doc.rect(boxX,y,boxW,totH,'S');
+    doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(0);
+    doc.text('Order Total',boxX+2,y+6.5);
+    doc.text(money(tt),pageW-margin-2,y+6.5,{align:'right'});
+    y+=totH+6;
+
+    pageFooter('Sivasakthi Marketing  \u00B7  Purchase Order');
+    signature();
+  });
+
+  // ── Summary page when downloading several orders ──
+  if(orders.length>1){
+    doc.addPage();
+    pageHeader('Order Summary','Total Orders:',String(orders.length),true);
+    let y=metaBox(32,[
+      ['FROM (COMPANY)',pdfSafe(c.name).substring(0,40)],
+      ['TO',"Sivasakthi Marketing"],
+      ['NO. OF ORDERS',orders.length],
+      ['PERIOD',pdfSafe(fmtD(orders[0].date))+'  -  '+pdfSafe(fmtD(orders[orders.length-1].date))]
+    ]);
+    y+=6;
+    doc.setFontSize(7); doc.setFont('times','bold'); doc.setTextColor(120);
+    doc.text('#',margin+2,y);
+    doc.text('ORDER DATE',margin+10,y);
+    doc.text('PRODUCTS',colUnit,y,{align:'right'});
+    doc.text('QTY',colQty,y,{align:'right'});
+    doc.text('AMOUNT',pageW-margin,y,{align:'right'});
+    y+=2; doc.setLineWidth(0.4); doc.setDrawColor(0); doc.line(margin,y,pageW-margin,y); y+=5;
+    let cnt=0;
+    summary.forEach((r,i)=>{
+      if(y>268){ continuedFooter(); doc.addPage(); pageHeader('Order Summary  \u00B7  Continued','','',false); y=34; cnt=0; }
+      if(cnt%2===1){ doc.setFillColor(250,250,250); doc.rect(margin,y-4.5,pageW-2*margin,6,'F'); }
+      doc.setFont('times','normal'); doc.setFontSize(9); doc.setTextColor(0);
+      doc.text(String(i+1),margin+2,y);
+      doc.text(pdfSafe(fmtD(r.date)),margin+10,y);
+      doc.text(String(r.products),colUnit,y,{align:'right'});
+      doc.text(qtyStr(r.qty),colQty,y,{align:'right'});
+      doc.setFont('times','bold');
+      doc.text(money(r.total),pageW-margin,y,{align:'right'});
+      doc.setDrawColor(225); doc.setLineWidth(0.15); doc.line(margin,y+2,pageW-margin,y+2); doc.setDrawColor(0);
+      y+=6; cnt++;
+    });
+    y+=4;
+    if(y>255){ doc.addPage(); pageHeader('Order Summary  \u00B7  Continued','','',false); y=34; }
+    const boxX=119, boxW=pageW-margin-boxX;
+    doc.setDrawColor(0); doc.setLineWidth(0.5);
+    doc.rect(boxX,y,boxW,10,'S');
+    doc.setFont('times','bold'); doc.setFontSize(9); doc.setTextColor(0);
+    doc.text('Grand Total',boxX+2,y+6.5);
+    doc.text(money(grand),pageW-margin-2,y+6.5,{align:'right'});
+    pageFooter('Sivasakthi Marketing  \u00B7  Order Summary');
+    signature();
+  }
+
+  const slug=(c.name||'company').replace(/\s+/g,'-');
+  const fname=orders.length===1?`Order-${slug}-${orders[0].date}.pdf`:`Orders-${slug}.pdf`;
+  savePdfSmart(doc,fname);
+  toast('Order PDF downloaded 📄','ok');
+}
+function renderOrderList(){
+  const c=_ordComp(); if(!c) return;
+  _ordMigrate(c);
+  if(!_ordDraft) resetOrderDraft(true);
+  const dl=document.getElementById('ordProdList');
+  if(dl) dl.innerHTML=db.products.filter(p=>p.cId===currCompId).map(p=>`<option value="${_ordEsc(p.name)}">`).join('');
+  const editing=!!_ordDraft.id;
+  document.getElementById('ordDate').value=_ordDraft.date;
+  document.getElementById('ordFormTitle').textContent=editing?'✏️ Edit Order':'🧾 New Order';
+  document.getElementById('ordSaveBtn').textContent=editing?'💾 Update Order':'💾 Save Order';
+  document.getElementById('ordCancelBtn').style.display=editing?'':'none';
+
+  // ---- draft table ----
+  const list=_ordDraft.items;
+  const tb=document.getElementById('ordTbody'), tf=document.getElementById('ordTfoot');
+  const inpCss='width:84px;background:var(--input-bg);border:1px solid var(--glass-border);border-radius:8px;padding:5px 8px;color:var(--text);font-family:inherit;font-size:.84rem;outline:none';
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-ico">🧾</div><div style="font-size:.8rem">No products added yet</div></div></td></tr>';
+    tf.innerHTML='';
+  } else {
+    let tq=0,tt=0;
+    tb.innerHTML=list.map((it,i)=>{
+      const amt=it.qty*it.price; tq+=it.qty; tt+=amt;
+      return `<tr>
+        <td class="ord-no" style="color:var(--text3)">${i+1}</td>
+        <td><strong>${_ordEsc(it.name)}</strong></td>
+        <td><input type="number" min="0" step="any" value="${it.price}" class="ord-inp" style="${inpCss}" onchange="updateDraftItem('${it.id}','price',this.value)"></td>
+        <td><input type="number" min="0" step="any" value="${it.qty}" class="ord-inp" style="${inpCss};width:70px" onchange="updateDraftItem('${it.id}','qty',this.value)"></td>
+        <td style="color:var(--green);font-weight:700">${fmt(amt)}</td>
+        <td><button class="btn btn-sm" style="background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="deleteDraftItem('${it.id}')">🗑️</button></td>
+      </tr>`;
+    }).join('');
+    tf.innerHTML=`<tr style="background:rgba(236,72,153,.08)">
+      <td class="ord-no"></td><td colspan="2" style="text-align:right;font-weight:700">Total (${list.length} product${list.length>1?'s':''})</td>
+      <td style="font-weight:700">${tq}</td>
+      <td colspan="2" style="font-weight:800;color:var(--accent);font-size:1rem">${fmt(tt)}</td>
+    </tr>`;
+  }
+
+  // ---- saved orders (newest date first) ----
+  const box=document.getElementById('ordSaved');
+  const orders=(c.orders||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(!orders.length){
+    box.innerHTML='<div class="empty"><div class="empty-ico">📅</div><div style="font-size:.8rem">No saved orders yet</div></div>';
+    return;
+  }
+  let grand=0;
+  box.innerHTML=orders.map(o=>{
+    let tq=0,tt=0;
+    const rows=o.items.map((it,i)=>{ const a=it.qty*it.price; tq+=it.qty; tt+=a;
+      return `<tr><td class="ord-no" style="color:var(--text3)">${i+1}</td><td><strong>${_ordEsc(it.name)}</strong></td><td>${fmt(it.price)}</td><td>${it.qty}</td><td style="color:var(--green);font-weight:700">${fmt(a)}</td></tr>`; }).join('');
+    grand+=tt;
+    const hl=(editing&&_ordDraft.id===o.id)?'border-color:var(--accent);':'';
+    return `<div style="background:var(--glass-bg);border:1px solid var(--glass-border);${hl}border-radius:14px;padding:12px 14px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div style="font-weight:700">📅 ${fmtD(o.date)} <span style="font-weight:400;font-size:.76rem;color:var(--text3)">· ${o.items.length} product${o.items.length>1?'s':''}</span></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="downloadOrderPDF('${o.id}')">📄 PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="editOrder('${o.id}')">✏️ Edit</button>
+          <button class="btn btn-sm" style="background:rgba(251,113,133,.1);color:var(--red);border:1px solid rgba(251,113,133,.25)" onclick="deleteOrder('${o.id}')">🗑️ Delete</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th class="ord-no">#</th><th>Product</th><th>Price</th><th>Qty</th><th>Amount</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:rgba(236,72,153,.08)"><td class="ord-no"></td><td colspan="2" style="text-align:right;font-weight:700">Total</td><td style="font-weight:700">${tq}</td><td style="font-weight:800;color:var(--accent)">${fmt(tt)}</td></tr></tfoot>
+      </table></div>
+    </div>`;
+  }).join('')+`<div style="text-align:right;font-size:.82rem;color:var(--text3)">All saved orders total: <strong style="color:var(--accent)">${fmt(grand)}</strong></div>`;
 }
 function backToComps(){showComps();currCompId=null;}
 
